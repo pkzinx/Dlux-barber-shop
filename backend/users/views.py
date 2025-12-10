@@ -12,6 +12,10 @@ from sales.models import Sale, Withdrawal
 from audit.models import AuditLog
 from django.db.models import Sum, Count, Q
 from django.core.paginator import Paginator
+from django.http import JsonResponse
+from django.utils import timezone
+from audit.models import AuditLog
+import datetime
 
 
 
@@ -409,6 +413,122 @@ def panel_finances(request: HttpRequest):
         'breakdown_by_barber': breakdown_by_barber,
         'all_services': Service.objects.filter(active=True).order_by('title'),
     })
+
+
+@login_required
+def finances_chart_data(request: HttpRequest):
+    """Return JSON timeseries for finances chart.
+    Query params:
+      - range: 'day'|'week'|'15'|'30' (default '30')
+      - compare: '1' to include previous-period comparison
+      - include_edited: '1' to include appointments that had updates (AuditLog)
+    """
+    rng = request.GET.get('range', '30')
+    compare = request.GET.get('compare', '0') in ('1', 'true', 'on')
+    include_edited = request.GET.get('include_edited', '0') in ('1', 'true', 'on')
+    now_local = timezone.localtime()
+
+    def mk_range_points(start_local, end_local, granularity='day'):
+        points = []
+        details = {}
+        cur = start_local
+        if granularity == 'hour':
+            step = datetime.timedelta(hours=1)
+            while cur < end_local:
+                nxt = cur + step
+                utc_beg = cur.astimezone(datetime.timezone.utc)
+                utc_end = nxt.astimezone(datetime.timezone.utc)
+                # count done appointments
+                done_qs = Appointment.objects.filter(status=Appointment.STATUS_DONE, start_datetime__gte=utc_beg, start_datetime__lt=utc_end)
+                done_ids = set(done_qs.values_list('id', flat=True))
+                count_ids = set(done_ids)
+                if include_edited:
+                    edits = AuditLog.objects.filter(action='update', target_type='Appointment', timestamp__gte=utc_beg, timestamp__lt=utc_end)
+                    edit_ids = set()
+                    for t in edits.values_list('target_id', flat=True):
+                        try:
+                            edit_ids.add(int(t))
+                        except Exception:
+                            pass
+                    count_ids |= edit_ids
+                ts = int(cur.astimezone(datetime.timezone.utc).timestamp() * 1000)
+                # prepare list of service titles for this bucket
+                services = list({getattr(a.service, 'title', '') for a in done_qs})
+                details[ts] = services
+                points.append([ts, len(count_ids)])
+                cur = nxt
+            return points, details
+        else:
+            # daily granularity
+            step = datetime.timedelta(days=1)
+            while cur < end_local:
+                nxt = (cur + step)
+                utc_beg = cur.astimezone(datetime.timezone.utc)
+                utc_end = nxt.astimezone(datetime.timezone.utc)
+                done_qs = Appointment.objects.filter(status=Appointment.STATUS_DONE, start_datetime__gte=utc_beg, start_datetime__lt=utc_end)
+                done_ids = set(done_qs.values_list('id', flat=True))
+                count_ids = set(done_ids)
+                if include_edited:
+                    edits = AuditLog.objects.filter(action='update', target_type='Appointment', timestamp__gte=utc_beg, timestamp__lt=utc_end)
+                    edit_ids = set()
+                    for t in edits.values_list('target_id', flat=True):
+                        try:
+                            edit_ids.add(int(t))
+                        except Exception:
+                            pass
+                    count_ids |= edit_ids
+                ts = int(cur.astimezone(datetime.timezone.utc).timestamp() * 1000)
+                services = list({getattr(a.service, 'title', '') for a in done_qs})
+                details[ts] = services
+                points.append([ts, len(count_ids)])
+                cur = nxt
+            return points, details
+
+    # determine start/end/local and granularity
+    if rng == 'day':
+        start_local = now_local.replace(hour=0, minute=0, second=0, microsecond=0)
+        end_local = start_local + datetime.timedelta(days=1)
+        gran = 'hour'
+        period_len = datetime.timedelta(days=1)
+    elif rng == 'week':
+        end_local = now_local.replace(hour=23, minute=59, second=59, microsecond=999999)
+        start_local = end_local - datetime.timedelta(days=6)
+        start_local = start_local.replace(hour=0, minute=0, second=0, microsecond=0)
+        gran = 'day'
+        period_len = datetime.timedelta(days=7)
+    elif rng == '15':
+        end_local = now_local
+        start_local = (now_local - datetime.timedelta(days=14)).replace(hour=0, minute=0, second=0, microsecond=0)
+        gran = 'day'
+        period_len = datetime.timedelta(days=15)
+    else:
+        # default 30
+        end_local = now_local
+        start_local = (now_local - datetime.timedelta(days=29)).replace(hour=0, minute=0, second=0, microsecond=0)
+        gran = 'day'
+        period_len = datetime.timedelta(days=30)
+
+    series_main, details_main = mk_range_points(start_local, end_local, gran)
+
+    out_series = [
+        {
+            'name': 'Período atual',
+            'data': series_main,
+        }
+    ]
+    out_details = {'current': details_main}
+
+    if compare:
+        prev_start = start_local - period_len
+        prev_end = start_local
+        series_prev, details_prev = mk_range_points(prev_start, prev_end, gran)
+        out_series.append({
+            'name': 'Comparação (período anterior)',
+            'data': series_prev,
+        })
+        out_details['compare'] = details_prev
+
+    return JsonResponse({'series': out_series, 'details': out_details})
 
 
 @login_required

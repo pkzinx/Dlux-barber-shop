@@ -19,7 +19,57 @@
   </div>
 </div>
 
-<div class="row g-3 mb-4">
+<!-- Mobile KPI scroller (small screens) -->
+<div class="d-lg-none mb-2">
+  <div class="kpi-scroller">
+    <div class="kpi-card-row">
+      <div class="card card-panel kpi-card">
+        <div class="card-body">
+          <div class="kpi">R$ {{ kpis.today_revenue }}</div>
+          <div class="kpi-label">Faturamento Hoje</div>
+        </div>
+      </div>
+      <div class="card card-panel kpi-card">
+        <div class="card-body">
+          <div class="kpi">R$ {{ kpis.month_revenue }}</div>
+          <div class="kpi-label">Faturamento Mês</div>
+        </div>
+      </div>
+      <div class="card card-panel kpi-card">
+        <div class="card-body">
+          <div class="kpi">{{ kpis.appts_completed }}</div>
+          <div class="kpi-label">Concluídos Hoje</div>
+        </div>
+      </div>
+      <div class="card card-panel kpi-card">
+        <div class="card-body">
+          <div class="kpi">{{ kpis.appts_cancelled }}</div>
+          <div class="kpi-label">Cancelados Hoje</div>
+        </div>
+      </div>
+      {% if not is_admin %}
+      <div class="card card-panel kpi-card">
+        <div class="card-body">
+          <div class="kpi">R$ {{ kpis.barber_share_month }}</div>
+          <div class="kpi-label">Participação (Mês)</div>
+        </div>
+      </div>
+      {% if is_special_finances_view %}
+      <div class="card card-panel kpi-card">
+        <div class="card-body">
+          <div class="kpi">R$ {{ kpis.month_total_all }}</div>
+          <div class="kpi-label">Faturamento Total (Mês)</div>
+        </div>
+      </div>
+      {% endif %}
+      {% endif %}
+    </div>
+  </div>
+  <div class="kpi-scroller-indicator">Role para ver mais →</div>
+</div>
+
+<!-- Desktop KPI grid -->
+<div class="row g-3 mb-4 d-none d-lg-flex">
   <div class="col-sm-6 col-lg">
     <div class="card card-panel">
       <div class="card-body">
@@ -106,38 +156,47 @@
 {% endif %}
 
 <div class="row g-3">
-  <div class="col-lg-6">
+  <div class="col-lg-12">
     <div class="card card-panel mb-4">
-      <div class="card-header fw-semibold">Resumo por serviço (mês, concluídos)</div>
-      <div class="card-body p-0">
-        <table class="table table-dark table-striped mb-0">
-          <thead>
-            <tr>
-              <th>Serviço</th>
-              <th style="width: 120px;">Qtd</th>
-              <th style="width: 160px;">Valor total</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for row in breakdown_by_service %}
-            <tr>
-              <td>{{ row.service__title }}</td>
-              <td>{{ row.count }}</td>
-              <td>R$ {{ row.total_value }}</td>
-            </tr>
-            {% empty %}
-            <tr><td colspan="3" class="text-center muted">Sem registros nesse período.</td></tr>
-            {% endfor %}
-          </tbody>
-        </table>
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <div class="d-flex align-items-center gap-3">
+          <span class="fw-semibold">Gráfico de agendamentos concluídos</span>
+        </div>
+        <div class="d-flex align-items-center gap-2 chart-controls">
+          <select id="chartRange" class="form-select form-select-sm">
+            <option value="day">Hoje (por horário)</option>
+            <option value="week">Últ. 7 dias</option>
+            <option value="15">Últ. 15 dias</option>
+            <option value="30" selected>Últ. 30 dias</option>
+          </select>
+          <div class="form-check form-switch ms-2">
+            <input class="form-check-input" type="checkbox" id="chartCompare">
+            <label class="form-check-label small" for="chartCompare">Comparar</label>
+          </div>
+          <!-- removed include edited toggle as requested -->
+          <button class="collapse-toggle ms-2" data-bs-toggle="collapse" data-bs-target="#chartBody" aria-expanded="true" aria-controls="chartBody" title="Minimizar/Expandir">
+            <span class="icon">▾</span>
+          </button>
+        </div>
+      </div>
+      
+      <div id="chartBody" class="collapse show card-body">
+        <div id="chart">
+          <div id="timeline-chart"></div>
+        </div>
       </div>
     </div>
   </div>
 
   <div class="col-lg-6">
     <div class="card card-panel mb-4">
-      <div class="card-header fw-semibold">Todos os serviços</div>
-      <div class="card-body p-0">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span class="fw-semibold">Todos os serviços</span>
+        <button class="collapse-toggle" data-bs-toggle="collapse" data-bs-target="#allServicesBody" aria-expanded="true" aria-controls="allServicesBody" title="Minimizar/Expandir">
+          <span class="icon">▾</span>
+        </button>
+      </div>
+      <div id="allServicesBody" class="collapse show card-body p-0">
         <table class="table table-dark table-striped mb-0">
           <thead>
             <tr>
@@ -199,11 +258,16 @@
 </div>
 {% endif %}
 
-<div class="row g-3">
+  <div class="row g-3">
   <div class="col-12">
     <div class="card card-panel mb-4">
-      <div class="card-header fw-semibold">Concluídos hoje</div>
-      <div class="card-body p-0">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span class="fw-semibold">Concluídos hoje</span>
+        <button class="collapse-toggle" data-bs-toggle="collapse" data-bs-target="#completedTodayBody" aria-expanded="true" aria-controls="completedTodayBody" title="Minimizar/Expandir">
+          <span class="icon">▾</span>
+        </button>
+      </div>
+      <div id="completedTodayBody" class="collapse show card-body p-0">
         <table class="table table-dark table-striped mb-0">
           <thead>
             <tr>
@@ -239,5 +303,136 @@
     </div>
   </div>
 </div>
+
+<script>
+  // Toggle collapse icon direction for collapse-toggle buttons
+  (function(){
+    const toggles = document.querySelectorAll('.collapse-toggle');
+    toggles.forEach(btn => {
+      const target = btn.getAttribute('data-bs-target');
+      if (!target) return;
+      const el = document.querySelector(target);
+      const icon = btn.querySelector('.icon');
+      if (!el || !icon) return;
+      el.addEventListener('shown.bs.collapse', () => { icon.textContent = '▾'; });
+      el.addEventListener('hidden.bs.collapse', () => { icon.textContent = '▸'; });
+      // set initial state
+      if (el.classList.contains('show')) icon.textContent = '▾'; else icon.textContent = '▸';
+    });
+  })();
+</script>
+
+<!-- ApexCharts (CDN) and chart rendering -->
+<script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+<script>
+  (function(){
+    const chartEl = document.querySelector('#timeline-chart');
+    if (!chartEl) return;
+
+    const defaultOptions = {
+      chart: {
+        type: 'area',
+        height: 320,
+        stacked: false,
+        toolbar: { show: false },
+        zoom: { enabled: false }
+      },
+      colors: ['#0090FF', '#00E396'],
+      stroke: { curve: 'smooth', width: 3 },
+      dataLabels: { enabled: false },
+      markers: { size: 0, hover: { size: 6 } },
+      xaxis: { type: 'datetime' },
+      yaxis: { labels: { formatter: v => v } },
+      tooltip: { x: { format: 'dd MMM yyyy HH:mm' }, enabled: true, custom: function(opts){ return '<div class="apexcharts-tooltip apexcharts-theme-light apexcharts-active">Loading...</div>'; } },
+      legend: { position: 'top', horizontalAlign: 'left' },
+      fill: { type: 'solid', opacity: 0.7 },
+      series: [{ name: 'Período atual', data: [] }]
+    };
+
+    const chart = new ApexCharts(chartEl, defaultOptions);
+    chart.render();
+
+    const rangeSel = document.getElementById('chartRange');
+    const compareEl = document.getElementById('chartCompare');
+    const includeEditedEl = document.getElementById('chartIncludeEdited');
+
+    let chartDetails = null;
+
+    function buildTooltipHtml(ts){
+      // ts is timestamp in ms
+      const details = chartDetails && chartDetails.current ? (chartDetails.current[ts] || []) : [];
+      let html = '<div class="apexcharts-tooltip apexcharts-theme-light apexcharts-active" style="padding:8px;min-width:160px">';
+      html += `<div style="font-weight:600;margin-bottom:6px">Total: ${details.length}</div>`;
+      if(details.length){
+        html += '<div style="font-size:0.85rem">';
+        details.forEach(s => { html += `<div>• ${s}</div>`; });
+        html += '</div>';
+      }
+      html += '</div>';
+      return html;
+    }
+
+    async function fetchDataAndUpdate(){
+      const range = rangeSel.value;
+      const compare = compareEl.checked ? 1 : 0;
+      const include_edited = includeEditedEl ? (includeEditedEl.checked ? 1 : 0) : 0;
+      const url = `/painel/financas/chart-data/?range=${encodeURIComponent(range)}&compare=${compare}&include_edited=${include_edited}`;
+      try{
+        const res = await fetch(url, { credentials: 'same-origin' });
+        if (!res.ok) throw new Error('Falha ao obter dados');
+        const json = await res.json();
+        const series = json.series || [];
+        chartDetails = json.details || null;
+        // Ensure at least one series exists
+        if (!series.length) {
+          chart.updateSeries([{ name: 'Período atual', data: [] }]);
+          return;
+        }
+        // Map series to expected colors: first blue, second green
+        const s = series.map((it, i) => ({ name: it.name, data: it.data }));
+        // If comparing and range is 'day', make the compare series label 'Ontem' for clarity
+        if (compare && range === 'day' && s.length > 1) {
+          s[1].name = 'Ontem';
+        }
+        // update tooltip custom to show services for current point
+        chart.updateOptions({
+          series: s,
+          colors: ['#0090FF', '#00E396'],
+          tooltip: {
+            enabled: true,
+            x: { format: (rangeSel.value === 'day') ? 'HH:mm' : 'dd MMM yyyy' },
+            custom: function({series, seriesIndex, dataPointIndex, w}){
+              try{
+                const point = w.globals.series[seriesIndex] ? w.globals.series[seriesIndex][dataPointIndex] : null;
+                // attempt to get timestamp from series data
+                let ts = null;
+                if(point && Array.isArray(series[seriesIndex].data) && series[seriesIndex].data[dataPointIndex]){
+                  ts = series[seriesIndex].data[dataPointIndex][0];
+                } else if(point && typeof point === 'number'){
+                  ts = w.globals.seriesX[seriesIndex] ? w.globals.seriesX[seriesIndex][dataPointIndex] : null;
+                }
+                if(!ts && w.globals && w.globals.seriesX && w.globals.seriesX[0]){
+                  ts = w.globals.seriesX[0][dataPointIndex];
+                }
+                if(!ts) return buildTooltipHtml(0);
+                return buildTooltipHtml(ts);
+              }catch(e){
+                return buildTooltipHtml(0);
+              }
+            }
+          }
+        }, false, true);
+      }catch(err){
+        console.error('Chart fetch error', err);
+      }
+    }
+
+    // Bind controls
+    [rangeSel, compareEl, includeEditedEl].forEach(el => el && el.addEventListener('change', fetchDataAndUpdate));
+
+    // Initial load
+    fetchDataAndUpdate();
+  })();
+</script>
 
 {% endblock %}

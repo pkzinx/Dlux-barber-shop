@@ -8,11 +8,43 @@
     <a href="#" class="btn btn-sm btn-accent" data-bs-toggle="modal" data-bs-target="#quickScheduleModal">Novo agendamento</a>
     <a href="?export=csv" class="btn btn-sm btn-outline-light ms-2">Exportar CSV</a>
   </div>
+</div>
+
+<!-- Abas: Agenda vs Histórico -->
+<ul class="nav nav-tabs nav-tabs-dark mb-3" role="tablist">
+  <li class="nav-item" role="presentation">
+    <button class="nav-link active" id="agenda-tab" data-bs-toggle="tab" data-bs-target="#agenda-panel" type="button" role="tab" aria-controls="agenda-panel" aria-selected="true">Agenda</button>
+  </li>
+  <li class="nav-item" role="presentation">
+    <button class="nav-link" id="history-tab" data-bs-toggle="tab" data-bs-target="#history-panel" type="button" role="tab" aria-controls="history-panel" aria-selected="false">Histórico</button>
+  </li>
+</ul>
+
+<!-- Tab Agenda (FullCalendar) -->
+<div class="tab-content">
+  <div class="tab-pane fade show active" id="agenda-panel" role="tabpanel" aria-labelledby="agenda-tab">
+        <div class="card card-panel mb-4">
+      <div class="card-body p-3">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <div class="d-flex align-items-center gap-2">
+            <label for="calendarBarberFilter" class="small muted mb-0">Barbeiro:</label>
+            <select id="calendarBarberFilter" class="form-select form-select-sm">
+              <option value="all">Todos os barbeiros</option>
+            </select>
+          </div>
+          <div class="small text-muted">Clique em um dia ou evento para ver os detalhes</div>
+        </div>
+        <div id="calendar" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;" data-current-user-id="{{ user.id }}" data-current-user-role="{{ user.role }}"></div>
+      </div>
+    </div>
   </div>
 
+  <!-- Tab Histórico (visão anterior com cards por barbeiro) -->
+  <div class="tab-pane fade" id="history-panel" role="tabpanel" aria-labelledby="history-tab">
+
 <div class="card card-panel mb-4">
-  <div class="card-header fw-semibold">Agendamentos (histórico)</div>
-  <div class="card-body p-3">
+      <div class="card-header fw-semibold">Agendamentos (histórico)</div>
+      <div class="card-body p-3">
     <style>
       .appt-board {
         display: grid;
@@ -146,7 +178,292 @@
       </ul>
     </nav>
   </div>
+    </div>
+  </div>
 </div>
+
+<!-- FullCalendar CSS & JS (CDN) -->
+<link href='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.css' rel='stylesheet' />
+<script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js'></script>
+
+<style>
+  /* Dark theme for FullCalendar */
+  .fc { font-family: inherit; }
+  .fc .fc-button-primary { background-color: #0090ff; border-color: #0090ff; }
+  .fc .fc-button-primary:hover { background-color: #0071cc; border-color: #0071cc; }
+  .fc .fc-button-primary:not(:disabled).fc-button-active { background-color: #0071cc; border-color: #0071cc; }
+  .fc .fc-daygrid-day { background: transparent; border-color: #333; }
+  .fc .fc-daygrid-day.fc-day-other { background: #0a0a0a; }
+  .fc .fc-daygrid-day.fc-day-today { background: #1a3a2b; }
+  .fc .fc-col-header-cell { background: #1d1d1d; border-color: #333; color: #bbb; }
+  .fc .fc-daygrid-day-number { color: #bbb; padding: 4px 8px; }
+  .fc .fc-daygrid-day-frame { position: relative; min-height: 100px; }
+  .fc-event { cursor: pointer; transition: all 0.2s ease; }
+  .fc-event:hover { box-shadow: 0 4px 12px rgba(0, 144, 255, 0.3); transform: translateY(-2px); }
+  .fc .fc-timegrid-slot { height: 2em; }
+  .fc .fc-timegrid-slot-label { font-size: 0.85rem; }
+  .fc .fc-toolbar-title { font-size: 1.5rem; color: #fff; }
+  .fc .fc-toolbar { padding: 12px 0; margin-bottom: 16px; }
+  
+  /* Barbeiro colors (pastéis bonitos) */
+  .appt-kaue { background-color: #6366f1; border-color: #4f46e5; }
+  .appt-kaue .fc-event-title { color: #fff; font-weight: 600; }
+  
+  .appt-kevin { background-color: #ec4899; border-color: #db2777; }
+  .appt-kevin .fc-event-title { color: #fff; font-weight: 600; }
+  
+  .appt-emerson { background-color: #f59e0b; border-color: #d97706; }
+  .appt-emerson .fc-event-title { color: #fff; font-weight: 600; }
+  
+  .appt-rikelv { background-color: #10b981; border-color: #059669; }
+  .appt-rikelv .fc-event-title { color: #fff; font-weight: 600; }
+  
+  .appt-alefi, .appt-alafy { background-color: #8b5cf6; border-color: #7c3aed; }
+  .appt-alefi .fc-event-title, .appt-alafy .fc-event-title { color: #fff; font-weight: 600; }
+  
+  .appt-default { background-color: #6b7280; border-color: #4b5563; }
+  .appt-default .fc-event-title { color: #fff; font-weight: 600; }
+
+  /* Status badges em eventos */
+  .fc-event-extra-info { font-size: 0.75rem; opacity: 0.9; margin-top: 2px; }
+  
+  /* Responsivo: esconder labels em mobile */
+  @media (max-width: 768px) {
+    .fc .fc-toolbar { flex-direction: column; gap: 8px; }
+    .fc .fc-toolbar-chunk { width: 100%; }
+    .fc .fc-button-group { width: 100%; }
+    .fc .fc-button-group .fc-button { flex: 1; }
+    .fc .fc-daygrid-day-frame { min-height: 60px; }
+    .fc .fc-daygrid-day-number { font-size: 0.9rem; }
+    .fc-event { font-size: 0.8rem; }
+    .fc-event-title { padding: 2px 4px; }
+  }
+
+  /* Tooltip custom para eventos */
+  .appt-popover { 
+    background: #262626; border: 1px solid #444; border-radius: 8px; 
+    padding: 12px; max-width: 280px; box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  }
+  .appt-popover-header { font-weight: 600; margin-bottom: 8px; }
+  .appt-popover-row { display: flex; margin-bottom: 4px; font-size: 0.9rem; }
+  .appt-popover-row strong { min-width: 60px; margin-right: 8px; }
+</style>
+
+<script>
+  // Mapa de cores por barbeiro
+  const barberColors = {
+    'kaue': '#6366f1',
+    'kevin': '#ec4899',
+    'emerson': '#f59e0b',
+    'rikelv': '#10b981',
+    'alefi': '#8b5cf6',
+    'alafy': '#8b5cf6',
+  };
+  
+  const barberClasses = {
+    'kaue': 'appt-kaue',
+    'kevin': 'appt-kevin',
+    'emerson': 'appt-emerson',
+    'rikelv': 'appt-rikelv',
+    'alefi': 'appt-alefi',
+    'alafy': 'appt-alafy',
+  };
+
+  document.addEventListener('DOMContentLoaded', function() {
+    const calendarEl = document.getElementById('calendar');
+    const barberFilterEl = document.getElementById('calendarBarberFilter');
+    const currentUserId = parseInt(calendarEl.getAttribute('data-current-user-id') || '0', 10);
+    const currentUserRole = (calendarEl.getAttribute('data-current-user-role') || '').toLowerCase();
+
+    // Populate barbers list for filter
+    function loadBarbersForCalendar(){
+      fetch('/api/appointments/barbers/')
+        .then(r => r.json())
+        .then(data => {
+          const list = Array.isArray(data?.barbers) ? data.barbers : (data || []);
+          // keep existing 'all' option
+          list.forEach(b => {
+            const opt = document.createElement('option');
+            opt.value = b.id;
+            opt.textContent = b.name || (b.display_name || b.username || `#${b.id}`);
+            opt.dataset.username = (b.username || (b.name || '')).toLowerCase();
+            barberFilterEl.appendChild(opt);
+          });
+          // Default selection: if user is barber, preselect them and disable
+          if (currentUserRole === 'barber' && currentUserId) {
+            barberFilterEl.value = String(currentUserId);
+            barberFilterEl.disabled = true;
+            applyBarberHighlight(barberFilterEl.value);
+          }
+        }).catch(()=>{});
+    }
+
+    const calendar = new FullCalendar.Calendar(calendarEl, {
+      locale: 'pt-br',
+      firstDay: 1,
+      initialView: window.innerWidth < 768 ? 'dayGridDay' : 'dayGridMonth',
+      headerToolbar: {
+        left: window.innerWidth < 768 ? 'prev,next' : 'prev,next today',
+        center: 'title',
+        right: window.innerWidth < 768 ? '' : 'dayGridMonth,timeGridWeek,timeGridDay'
+      },
+      height: 'auto',
+      contentHeight: 'auto',
+      dateClick: function(info){
+        // When clicking a day in month view, switch to day view focused on that date
+        const targetDate = info.date;
+        // If current user is barber, ensure filter is set to themselves
+        if (currentUserRole === 'barber' && currentUserId) {
+          barberFilterEl.value = String(currentUserId);
+          barberFilterEl.disabled = true;
+          applyBarberHighlight(barberFilterEl.value);
+        }
+        calendar.changeView(window.innerWidth < 768 ? 'dayGridDay' : 'timeGridDay');
+        calendar.gotoDate(targetDate);
+      },
+      eventClick: function(info){
+        // When clicking an event in month view, open day view and filter to that barber
+        const ev = info.event;
+        const bId = ev.extendedProps.barberId || 0;
+        if (bId) {
+          barberFilterEl.value = String(bId);
+          applyBarberHighlight(barberFilterEl.value);
+        }
+        calendar.changeView(window.innerWidth < 768 ? 'dayGridDay' : 'timeGridDay');
+        calendar.gotoDate(ev.start);
+      },
+      eventDidMount: function(info) {
+        // Adicionar classe de cor ao evento
+        const barber = (info.event.extendedProps.barber || '').toLowerCase();
+        const colorClass = barberClasses[barber] || 'appt-default';
+        info.el.classList.add(colorClass);
+
+        // Popover no hover (desktop) ou click
+        const barberDisplay = info.event.extendedProps.barber || 'N/A';
+        const client = info.event.extendedProps.client || '';
+        const service = info.event.extendedProps.service || '';
+        const status = info.event.extendedProps.status || 'scheduled';
+        const phone = info.event.extendedProps.phone || '';
+
+        const popoverHtml = `
+          <div class="appt-popover">
+            <div class="appt-popover-header">${info.event.title}</div>
+            <div class="appt-popover-row"><strong>Barbeiro:</strong> ${barberDisplay}</div>
+            <div class="appt-popover-row"><strong>Cliente:</strong> ${client}</div>
+            <div class="appt-popover-row"><strong>Serviço:</strong> ${service}</div>
+            <div class="appt-popover-row"><strong>Status:</strong> <span class="badge bg-${status === 'done' ? 'success' : status === 'cancelled' ? 'danger' : 'secondary'}">${status}</span></div>
+            ${phone ? `<div class="appt-popover-row"><strong>Telefone:</strong> ${phone}</div>` : ''}
+          </div>
+        `;
+
+        info.el.setAttribute('title', `${barberDisplay} • ${client} • ${service}`);
+        info.el.setAttribute('data-bs-toggle', 'popover');
+        info.el.setAttribute('data-bs-placement', 'auto');
+        info.el.setAttribute('data-bs-html', 'true');
+        info.el.setAttribute('data-bs-content', popoverHtml);
+        try{
+          if (window.bootstrap && window.bootstrap.Popover) {
+            if (info.el._popoverInstance) {
+              try { info.el._popoverInstance.dispose(); } catch(e){}
+            }
+            info.el._popoverInstance = new bootstrap.Popover(info.el, { container: 'body', html: true, content: popoverHtml, trigger: window.innerWidth < 768 ? 'click' : 'hover focus' });
+          }
+        }catch(e){ }
+
+        // Trigger edição ao clicar
+        info.el.style.cursor = 'pointer';
+        info.el.addEventListener('dblclick', function(e) {
+          e.stopPropagation();
+          const btn = document.createElement('a');
+          btn.setAttribute('href', '#');
+          btn.setAttribute('data-bs-toggle', 'modal');
+          btn.setAttribute('data-bs-target', '#editAppointmentModal');
+          btn.setAttribute('data-appointment-id', info.event.id);
+          btn.setAttribute('data-appointment-status', status);
+          btn.setAttribute('data-appointment-barber-id', info.event.extendedProps.barberId);
+          document.body.appendChild(btn);
+          btn.click();
+          document.body.removeChild(btn);
+        });
+      },
+      events: function(info, successCallback, failureCallback) {
+        // Buscar agendamentos da API (últimos 60 dias + próximos 30)
+        const startDate = new Date(info.start);
+        startDate.setDate(startDate.getDate() - 60);
+        const endDate = new Date(info.end);
+        endDate.setDate(endDate.getDate() + 30);
+
+        const params = new URLSearchParams({
+          start: startDate.toISOString().split('T')[0],
+          end: endDate.toISOString().split('T')[0],
+        });
+        const barberVal = barberFilterEl.value || 'all';
+        if (barberVal && barberVal !== 'all') params.set('barber', barberVal);
+
+        fetch(`/api/appointments/?${params.toString()}`)
+          .then(r => r.json())
+          .then(data => {
+            const events = (Array.isArray(data) ? data : (data.results || [])).map(appt => ({
+              id: appt.id.toString(),
+              // Improve title for readability: show time + service + client short
+              title: (new Date(appt.start_datetime)).toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'}) + ' — ' + (appt.service?.title || 'Serviço') + (appt.client_name ? ` • ${appt.client_name.split(' ')[0]}` : ''),
+              start: appt.start_datetime,
+              end: appt.end_datetime,
+              backgroundColor: barberColors[(appt.barber?.username || '').toLowerCase()] || '#6b7280',
+              borderColor: barberColors[(appt.barber?.username || '').toLowerCase()] || '#4b5563',
+              classNames: [barberClasses[(appt.barber?.username || '').toLowerCase()] || 'appt-default'],
+              extendedProps: {
+                barber: appt.barber?.display_name || appt.barber?.username || 'N/A',
+                barberId: appt.barber?.id || 0,
+                client: appt.client_name || 'N/A',
+                service: appt.service?.title || 'N/A',
+                status: appt.status || 'scheduled',
+                phone: appt.client_phone || '',
+              }
+            }));
+            successCallback(events);
+          })
+          .catch(failureCallback);
+      }
+    });
+
+    function applyBarberHighlight(barberId){
+      const opt = barberFilterEl.querySelector(`option[value="${barberId}"]`);
+      const toolbarTitle = document.querySelector('.fc .fc-toolbar-title');
+      if (!opt || !toolbarTitle) {
+        // reset
+        calendarEl.style.borderTop = '';
+        if (toolbarTitle) toolbarTitle.style.color = '';
+        return;
+      }
+      const username = (opt.dataset.username || '').toLowerCase();
+      const color = barberColors[username] || '';
+      if (color) {
+        calendarEl.style.borderTop = `4px solid ${color}`;
+        toolbarTitle.style.color = color;
+      } else {
+        calendarEl.style.borderTop = '';
+        toolbarTitle.style.color = '';
+      }
+      // refetch events to apply filter
+      calendar.refetchEvents();
+    }
+
+    barberFilterEl.addEventListener('change', function(){ applyBarberHighlight(this.value); });
+
+    loadBarbersForCalendar();
+
+    calendar.render();
+
+    // Atualizar view ao redimensionar (responsivo)
+    window.addEventListener('resize', () => {
+      const newView = window.innerWidth < 768 ? 'dayGridDay' : 'dayGridMonth';
+      if (calendar.view.type !== newView) {
+        calendar.changeView(newView);
+      }
+    });
+  });
+</script>
 
 <!-- Modal: Editar agendamento -->
 <div class="modal fade" id="editAppointmentModal" tabindex="-1" aria-labelledby="editAppointmentLabel" aria-hidden="true">

@@ -21,7 +21,9 @@ from django.conf.urls.static import static
 from django.views.generic import RedirectView
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
+    # Move Django admin to a less-conflicting path and reserve `/admin/` for the app panel
+    path('django-admin/', admin.site.urls),
+    path('admin/', RedirectView.as_view(pattern_name='painel_index', permanent=False)),
     path('', RedirectView.as_view(url='/painel/')),
     path('', include('users.urls')),
     path('api/appointments/', include('appointments.urls')),

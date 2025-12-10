@@ -46,3 +46,46 @@ body { background: var(--dlux-bg); color: var(--dlux-text); }
 .login-hero .card-title { letter-spacing: .3px; }
 .login-hero .form-control { background: #111; border-color: #222; color: var(--dlux-text); }
 .login-hero .form-control:focus { box-shadow: 0 0 0 0.2rem rgba(197, 157, 95, .15); border-color: var(--dlux-accent); }
+
+/* Mobile bottom navigation */
+.mobile-bottom-nav { position: fixed; left: 0; right: 0; bottom: 0; background: #0b0b0b; border-top: 1px solid #1f1f21; z-index: 1050; }
+.mobile-bottom-nav .nav-item { flex: 1 1 0; text-align: center; padding: .45rem 0; color: var(--dlux-text); }
+.mobile-bottom-nav .nav-item a { color: inherit; display: inline-flex; flex-direction: column; align-items: center; gap: .2rem; font-size: .75rem; }
+.mobile-bottom-nav .nav-item svg { width: 20px; height: 20px; fill: currentColor; }
+.mobile-bottom-nav .nav-item.active { color: var(--dlux-accent); }
+
+/* Horizontal KPI scroller (mobile) */
+.kpi-scroller { overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 0.5rem; }
+.kpi-scroller .kpi-card-row { display: flex; gap: .75rem; padding: .5rem 0; }
+.kpi-scroller .kpi-card { min-width: 180px; flex: 0 0 auto; }
+.kpi-scroller-indicator { text-align: center; font-size: .85rem; color: var(--dlux-muted); margin-top: .25rem; }
+
+/* Collapse toggle button in card header */
+.card-header .collapse-toggle { background: transparent; border: 0; color: var(--dlux-text); }
+.collapse-toggle .icon { transition: transform .2s ease; display: inline-block; }
+.collapse.show + .card-body, .card-body.collapse.show { display: block; }
+
+@media (max-width: 991px) {
+  body { padding-bottom: 68px; }
+}
+
+/* Chart controls styling */
+.chart-controls { display: flex; gap: .5rem; align-items: center; }
+.chart-controls .form-select-sm { padding: .25rem .5rem; min-width: 150px; border-radius: .5rem; background: #0f0f12; border: 1px solid #262626; color: var(--dlux-text); }
+.chart-controls .form-select-sm:focus { box-shadow: 0 0 0 0.15rem rgba(197,157,95,0.12); border-color: var(--dlux-accent); }
+.chart-controls .form-check { margin: 0; }
+.chart-controls .form-check-input { width: 2rem; height: 1.2rem; }
+.chart-controls .collapse-toggle { background: transparent; border: 0; color: var(--dlux-text); }
+.chart-controls .collapse-toggle .icon { font-size: 1rem; }
+
+/* Slightly highlight chart card header controls area */
+.card-header .chart-controls { padding-left: .5rem; padding-right: .5rem; }
+
+/* Nav tabs dark theme */
+.nav-tabs-dark { border-bottom-color: #232325; }
+.nav-tabs-dark .nav-link { color: var(--dlux-muted); border: 0; padding-bottom: .75rem; border-bottom: 2px solid transparent; }
+.nav-tabs-dark .nav-link:hover { color: var(--dlux-text); border-bottom-color: #3a3a3d; }
+.nav-tabs-dark .nav-link.active { color: var(--dlux-accent); border-bottom-color: var(--dlux-accent); background: transparent; }
+
+/* Tab content spacing */
+.tab-content { margin-top: .5rem; }

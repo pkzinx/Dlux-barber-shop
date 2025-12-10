@@ -58,21 +58,36 @@
         <aside class="col-12 col-lg-2 sidebar p-0 collapse d-lg-block" id="sidebar">
           <div class="list-group list-group-flush">
             <a class="list-group-item list-group-item-action px-3 sidebar-link {% if request.path == '/painel/' %}active{% endif %}" href="/painel/">
-              <span class="me-2">🏠</span> Início
+              <span class="me-2" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M12 3l9 8h-3v8h-12v-8h-3l9-8z"></path></svg>
+              </span>
+              Início
             </a>
             <a class="list-group-item list-group-item-action px-3 sidebar-link {% if '/painel/agendamentos' in request.path %}active{% endif %}" href="/painel/agendamentos/">
-              <span class="me-2">📅</span> Agendamentos
+              <span class="me-2" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M7 10h5v5H7zM3 4h2V2h2v2h8V2h2v2h2c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H3c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2zM3 20h18V9H3v11z"></path></svg>
+              </span>
+              Agendamentos
             </a>
             <a class="list-group-item list-group-item-action px-3 sidebar-link {% if '/painel/financas' in request.path %}active{% endif %}" href="/painel/financas/">
-              <span class="me-2">💰</span> Finanças
+              <span class="me-2" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M12 1L3 5v6c0 5 3.8 9.7 9 11 5.2-1.3 9-6 9-11V5l-9-4zM11 6h2v2h-2V6zm0 4h2v6h-2v-6z"></path></svg>
+              </span>
+              Finanças
             </a>
             {% if user.username|lower in 'kaue,alafy' %}
             <a class="list-group-item list-group-item-action px-3 sidebar-link {% if '/painel/historico' in request.path %}active{% endif %}" href="/painel/historico/">
-              <span class="me-2">📝</span> Histórico
+              <span class="me-2" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M13 3a9 9 0 1 0 8.95 8H20a7 7 0 1 1-7-7V3zM12 7v6l5 3 .75-1.23-4.25-2.77V7z"></path></svg>
+              </span>
+              Histórico
             </a>
             {% endif %}
             <a class="list-group-item list-group-item-action px-3 sidebar-link {% if '/painel/perfil' in request.path %}active{% endif %}" href="/painel/perfil/">
-              <span class="me-2">👤</span> Perfil
+              <span class="me-2" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M12 12c2.7 0 4.8-2.2 4.8-4.8S14.7 2.4 12 2.4 7.2 4.6 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8V22h19.2v-2.8c0-3.2-6.4-4.8-9.6-4.8z"></path></svg>
+              </span>
+              Perfil
             </a>
           </div>
         </aside>
@@ -377,6 +392,48 @@
         </div>
       </div>
     </div>
+    <!-- Mobile bottom navigation (visible only on small screens) -->
+    {% if user.is_authenticated %}
+    <nav class="mobile-bottom-nav d-lg-none">
+      <div class="d-flex">
+        <div class="nav-item text-center {% if request.path == '/painel/' %}active{% endif %}">
+          <a href="/painel/" class="d-inline-flex flex-column align-items-center">
+            <!-- Home icon -->
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l9 8h-3v8h-12v-8h-3l9-8z"></path></svg>
+            <span>Início</span>
+          </a>
+        </div>
+        <div class="nav-item text-center {% if '/painel/agendamentos' in request.path %}active{% endif %}">
+          <a href="/painel/agendamentos/" class="d-inline-flex flex-column align-items-center">
+            <!-- Calendar icon -->
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10h5v5H7zM3 4h2V2h2v2h8V2h2v2h2c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H3c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2zM3 20h18V9H3v11z"></path></svg>
+            <span>Agend.</span>
+          </a>
+        </div>
+        <div class="nav-item text-center {% if '/painel/financas' in request.path %}active{% endif %}">
+          <a href="/painel/financas/" class="d-inline-flex flex-column align-items-center">
+            <!-- Money icon -->
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 1L3 5v6c0 5 3.8 9.7 9 11 5.2-1.3 9-6 9-11V5l-9-4zM11 6h2v2h-2V6zm0 4h2v6h-2v-6z"></path></svg>
+            <span>Finanças</span>
+          </a>
+        </div>
+        <div class="nav-item text-center {% if '/painel/historico' in request.path %}active{% endif %}">
+          <a href="/painel/historico/" class="d-inline-flex flex-column align-items-center">
+            <!-- History icon -->
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 3a9 9 0 1 0 8.95 8H20a7 7 0 1 1-7-7V3zM12 7v6l5 3 .75-1.23-4.25-2.77V7z"></path></svg>
+            <span>Hist.</span>
+          </a>
+        </div>
+        <div class="nav-item text-center {% if '/painel/perfil' in request.path %}active{% endif %}">
+          <a href="/painel/perfil/" class="d-inline-flex flex-column align-items-center">
+            <!-- User icon -->
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 12c2.7 0 4.8-2.2 4.8-4.8S14.7 2.4 12 2.4 7.2 4.6 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8V22h19.2v-2.8c0-3.2-6.4-4.8-9.6-4.8z"></path></svg>
+            <span>Perfil</span>
+          </a>
+        </div>
+      </div>
+    </nav>
+    {% endif %}
 
     <script>
       // Carregar serviços para nova venda e popular select com preço disponível
