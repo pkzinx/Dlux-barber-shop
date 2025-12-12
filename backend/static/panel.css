@@ -61,8 +61,9 @@ body { background: var(--dlux-bg); color: var(--dlux-text); }
 .kpi-scroller-indicator { text-align: center; font-size: .85rem; color: var(--dlux-muted); margin-top: .25rem; }
 
 /* Collapse toggle button in card header */
-.card-header .collapse-toggle { background: transparent; border: 0; color: var(--dlux-text); }
-.collapse-toggle .icon { transition: transform .2s ease; display: inline-block; }
+.card-header .collapse-toggle { background: transparent; border: 0; color: var(--dlux-text); padding: 0; width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; }
+.collapse-toggle .icon { transition: transform .2s ease; display: inline-block; font-size: .9rem; line-height: 1; }
+.collapse-toggle:hover { opacity: .8; }
 .collapse.show + .card-body, .card-body.collapse.show { display: block; }
 
 @media (max-width: 991px) {
@@ -75,8 +76,8 @@ body { background: var(--dlux-bg); color: var(--dlux-text); }
 .chart-controls .form-select-sm:focus { box-shadow: 0 0 0 0.15rem rgba(197,157,95,0.12); border-color: var(--dlux-accent); }
 .chart-controls .form-check { margin: 0; }
 .chart-controls .form-check-input { width: 2rem; height: 1.2rem; }
-.chart-controls .collapse-toggle { background: transparent; border: 0; color: var(--dlux-text); }
-.chart-controls .collapse-toggle .icon { font-size: 1rem; }
+.chart-controls .collapse-toggle { background: transparent; border: 0; color: var(--dlux-text); padding: 0; width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; }
+.chart-controls .collapse-toggle .icon { font-size: .9rem; }
 
 /* Slightly highlight chart card header controls area */
 .card-header .chart-controls { padding-left: .5rem; padding-right: .5rem; }

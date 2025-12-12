@@ -1,4 +1,5 @@
 from django.shortcuts import render, redirect
+import os
 from decimal import Decimal, ROUND_HALF_UP
 from django.contrib.auth.decorators import login_required
 from django.http import HttpRequest, HttpResponse
@@ -16,6 +17,8 @@ from django.http import JsonResponse
 from django.utils import timezone
 from audit.models import AuditLog
 import datetime
+from sales.models import Sale, Withdrawal
+from django.db.models import Sum
 
 
 
@@ -217,7 +220,9 @@ def panel_finances(request: HttpRequest):
     is_special_finances_view = str(getattr(user, 'username', '')).lower() in special_full_access_usernames
     if request.method == 'POST' and (not is_admin) and is_special_finances_view:
         amount_str = (request.POST.get('withdraw_amount') or '').strip().replace(',', '.')
-        note = (request.POST.get('withdraw_note') or '').strip()
+        reason = (request.POST.get('withdraw_reason') or '').strip()
+        note_raw = (request.POST.get('withdraw_note') or '').strip()
+        note = (f"[{reason}] {note_raw}" if reason else note_raw)
         try:
             amt = Decimal(amount_str)
             if amt <= 0:
@@ -237,6 +242,7 @@ def panel_finances(request: HttpRequest):
                     payload={
                         'amount': str(amt),
                         'note': note,
+                        'reason': reason,
                         'barber': getattr(user, 'id', None),
                         'barber_label': (getattr(user, 'display_name', None) or getattr(user, 'username', None)),
                     }
@@ -364,42 +370,233 @@ def panel_finances(request: HttpRequest):
         entry['total_value'] += (s['total_value'] or 0)
         combined_map[sid] = entry
     breakdown_by_service = sorted(combined_map.values(), key=lambda x: x['total_value'], reverse=True)
-    breakdown_by_barber = appts_month_done.values('barber__id', 'barber__display_name', 'barber__username').annotate(
+    breakdown_by_barber = appts_month_done.exclude(barber__username__iexact='teste').exclude(barber__display_name__iexact='Teste Barber').values('barber__id', 'barber__display_name', 'barber__username').annotate(
         count=Count('id'),
         total_value=Sum('service__price')
     ).order_by('-total_value')
 
-    # CSV export (month-to-date paid sales)
     if request.GET.get('export') == 'csv':
-        rows = sales_month.filter(status='paid').select_related('barber').order_by('-created_at')
         response = HttpResponse(content_type='text/csv; charset=utf-8')
-        response['Content-Disposition'] = 'attachment; filename="financas_mensal.csv"'
+        response['Content-Disposition'] = 'attachment; filename="financas_export.csv"'
         writer = csv.writer(response)
-        # Header differs for admin vs barber view
-        if is_admin:
-            writer.writerow(['Data', 'Hora', 'Barbeiro', 'Valor', 'Pagamento', 'Status'])
-        else:
-            writer.writerow(['Data', 'Hora', 'Valor', 'Pagamento', 'Status'])
-        for s in rows:
-            date_str = timezone.localtime(s.created_at).strftime('%d/%m/%Y')
-            time_str = timezone.localtime(s.created_at).strftime('%H:%M')
-            if is_admin:
-                writer.writerow([
-                    date_str,
-                    time_str,
-                    getattr(s.barber, 'display_name', None) or getattr(s.barber, 'username', ''),
-                    str(s.amount),
-                    s.get_payment_method_display(),
-                    s.status,
-                ])
+        timeline_range = (request.GET.get('timeline_range') or '30').lower()
+        timeline_compare = (request.GET.get('timeline_compare') or '0').lower() in ('1','true','on')
+        include_edited = (request.GET.get('include_edited') or '0').lower() in ('1','true','on')
+        services_month = request.GET.get('services_month') or ''
+        services_compare = (request.GET.get('services_compare') or '0').lower() in ('1','true','on')
+        services_month_compare = request.GET.get('services_month_compare') or ''
+        barber_range = (request.GET.get('barber_range') or '30').lower()
+
+        def _mk_timeline(rng):
+            now_loc = timezone.localtime()
+            if rng in ('day', 'today'):
+                start_l = now_loc.replace(hour=0, minute=0, second=0, microsecond=0)
+                end_l = start_l + timezone.timedelta(days=1)
+                gran = 'hour'
+            elif rng in ('week','7'):
+                start_l = now_loc - timezone.timedelta(days=7)
+                end_l = now_loc
+                gran = 'day'
+            elif rng in ('15',):
+                start_l = now_loc - timezone.timedelta(days=15)
+                end_l = now_loc
+                gran = 'day'
             else:
-                writer.writerow([
-                    date_str,
-                    time_str,
-                    str(s.amount),
-                    s.get_payment_method_display(),
-                    s.status,
-                ])
+                start_l = now_loc - timezone.timedelta(days=30)
+                end_l = now_loc
+                gran = 'day'
+            apf = {}
+            if not (is_admin or is_special_finances_view):
+                apf['barber'] = user
+            cur = start_l
+            pts = []
+            det = {}
+            if gran == 'hour':
+                step = timezone.timedelta(hours=1)
+            else:
+                step = timezone.timedelta(days=1)
+            while cur < end_l:
+                nxt = cur + step
+                ub = cur.astimezone(datetime.timezone.utc)
+                ue = nxt.astimezone(datetime.timezone.utc)
+                done_qs = Appointment.objects.filter(status=Appointment.STATUS_DONE, start_datetime__gte=ub, start_datetime__lt=ue, **apf)
+                ids = set(done_qs.values_list('id', flat=True))
+                if include_edited:
+                    edits = AuditLog.objects.filter(action='update', target_type='Appointment', timestamp__gte=ub, timestamp__lt=ue)
+                    eids = set()
+                    for t in edits.values_list('target_id', flat=True):
+                        try:
+                            eids.add(int(t))
+                        except Exception:
+                            pass
+                    ids |= eids
+                ts = int(cur.astimezone(datetime.timezone.utc).timestamp()*1000)
+                services = list({getattr(a.service, 'title', '') for a in done_qs})
+                det[ts] = services
+                pts.append([ts, len(ids)])
+                cur = nxt
+            return pts, det
+
+        writer.writerow(['Agendamentos concluídos'])
+        writer.writerow(['Período', timeline_range])
+        pts, det = _mk_timeline(timeline_range)
+        writer.writerow(['Timestamp(ms)', 'Concluídos', 'Serviços'])
+        for ts,val in pts:
+            writer.writerow([ts, val, '; '.join(det.get(ts, []))])
+        if timeline_compare:
+            now_loc = timezone.localtime()
+            if timeline_range in ('day','today'):
+                prev_start = now_loc.replace(hour=0, minute=0, second=0, microsecond=0) - timezone.timedelta(days=1)
+                prev_end = prev_start + timezone.timedelta(days=1)
+            elif timeline_range in ('week','7'):
+                prev_start = now_loc - timezone.timedelta(days=14)
+                prev_end = now_loc - timezone.timedelta(days=7)
+            elif timeline_range in ('15',):
+                prev_start = now_loc - timezone.timedelta(days=30)
+                prev_end = now_loc - timezone.timedelta(days=15)
+            else:
+                prev_start = now_loc - timezone.timedelta(days=60)
+                prev_end = now_loc - timezone.timedelta(days=30)
+            rng_prev = 'compare'
+            writer.writerow([])
+            writer.writerow(['Agendamentos concluídos (comparação)'])
+            writer.writerow(['Período', rng_prev])
+            # shift logic by passing explicit interval
+            def _mk_interval(s_l, e_l, gran):
+                apf = {}
+                if not (is_admin or is_special_finances_view):
+                    apf['barber'] = user
+                cur = s_l
+                pts = []
+                det = {}
+                step = timezone.timedelta(hours=1) if gran=='hour' else timezone.timedelta(days=1)
+                while cur < e_l:
+                    nxt = cur + step
+                    ub = cur.astimezone(datetime.timezone.utc)
+                    ue = nxt.astimezone(datetime.timezone.utc)
+                    done_qs = Appointment.objects.filter(status=Appointment.STATUS_DONE, start_datetime__gte=ub, start_datetime__lt=ue, **apf)
+                    ids = set(done_qs.values_list('id', flat=True))
+                    if include_edited:
+                        edits = AuditLog.objects.filter(action='update', target_type='Appointment', timestamp__gte=ub, timestamp__lt=ue)
+                        eids = set()
+                        for t in edits.values_list('target_id', flat=True):
+                            try:
+                                eids.add(int(t))
+                            except Exception:
+                                pass
+                        ids |= eids
+                    ts = int(cur.astimezone(datetime.timezone.utc).timestamp()*1000)
+                    services = list({getattr(a.service, 'title', '') for a in done_qs})
+                    det[ts] = services
+                    pts.append([ts, len(ids)])
+                    cur = nxt
+                return pts, det
+            gran = 'hour' if timeline_range in ('day','today') else 'day'
+            pts2, det2 = _mk_interval(prev_start, prev_end, gran)
+            writer.writerow(['Timestamp(ms)', 'Concluídos', 'Serviços'])
+            for ts,val in pts2:
+                writer.writerow([ts, val, '; '.join(det2.get(ts, []))])
+
+        writer.writerow([])
+        writer.writerow(['Serviços mais agendados'])
+        month_sel = services_month
+        now_local2 = timezone.localtime()
+        try:
+            parts = (month_sel or '').split('-')
+            year = int(parts[0]) if len(parts)>=1 and parts[0] else now_local2.year
+            month = int(parts[1]) if len(parts)>=2 and parts[1] else now_local2.month
+            start_l = datetime.datetime(year=year, month=month, day=1, hour=0, minute=0, second=0, microsecond=0, tzinfo=now_local2.tzinfo)
+        except Exception:
+            start_l = now_local2.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        end_l = start_l.replace(month=start_l.month + 1) if start_l.month < 12 else start_l.replace(year=start_l.year+1, month=1)
+        apf2 = {}
+        if not (is_admin or is_special_finances_view):
+            apf2['barber'] = user
+        ub = start_l.astimezone(datetime.timezone.utc)
+        ue = end_l.astimezone(datetime.timezone.utc)
+        rows = Appointment.objects.filter(status=Appointment.STATUS_DONE, end_datetime__gte=ub, end_datetime__lt=ue, **apf2).values('service__title').annotate(c=Count('id')).order_by('-c')
+        writer.writerow(['Serviço', 'Concluídos'])
+        for r in rows:
+            writer.writerow([r['service__title'] or 'Serviço', int(r['c'] or 0)])
+        if services_compare and services_month_compare:
+            writer.writerow([])
+            writer.writerow(['Serviços mais agendados (comparação)'])
+            parts = (services_month_compare or '').split('-')
+            try:
+                year = int(parts[0]) if len(parts)>=1 and parts[0] else now_local2.year
+                month = int(parts[1]) if len(parts)>=2 and parts[1] else now_local2.month
+                start_l2 = datetime.datetime(year=year, month=month, day=1, hour=0, minute=0, second=0, microsecond=0, tzinfo=now_local2.tzinfo)
+            except Exception:
+                start_l2 = now_local2.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+            end_l2 = start_l2.replace(month=start_l2.month + 1) if start_l2.month < 12 else start_l2.replace(year=start_l2.year+1, month=1)
+            ub2 = start_l2.astimezone(datetime.timezone.utc)
+            ue2 = end_l2.astimezone(datetime.timezone.utc)
+            rows2 = Appointment.objects.filter(status=Appointment.STATUS_DONE, end_datetime__gte=ub2, end_datetime__lt=ue2, **apf2).values('service__title').annotate(c=Count('id')).order_by('-c')
+            writer.writerow(['Serviço', 'Concluídos'])
+            for r in rows2:
+                writer.writerow([r['service__title'] or 'Serviço', int(r['c'] or 0)])
+
+        writer.writerow([])
+        writer.writerow(['Quantidade de serviços por barbeiro'])
+        rng = barber_range
+        now_local3 = timezone.localtime()
+        if rng in ('today','day'):
+            start_l = now_local3.replace(hour=0, minute=0, second=0, microsecond=0)
+            end_l = now_local3
+        elif rng in ('7','week'):
+            start_l = now_local3 - timezone.timedelta(days=7)
+            end_l = now_local3
+        elif rng in ('15',):
+            start_l = now_local3 - timezone.timedelta(days=15)
+            end_l = now_local3
+        elif rng in ('60','2m','2mes','2meses'):
+            start_l = now_local3 - timezone.timedelta(days=60)
+            end_l = now_local3
+        else:
+            start_l = now_local3 - timezone.timedelta(days=30)
+            end_l = now_local3
+        ub3 = start_l.astimezone(datetime.timezone.utc)
+        ue3 = end_l.astimezone(datetime.timezone.utc)
+        qs = Appointment.objects.filter(status=Appointment.STATUS_DONE, end_datetime__gte=ub3, end_datetime__lt=ue3)
+        rows3 = list(qs.values('barber').annotate(c=Count('id')).order_by('-c'))
+        counts_map = {r['barber']: int(r.get('c') or 0) for r in rows3}
+        all_barbers = list(User.objects.filter(role=User.BARBER).order_by('display_name', 'username'))
+        def _norm(s):
+            return (s or '').strip().lower()
+        all_barbers = [u for u in all_barbers if _norm(getattr(u, 'display_name', '')) not in {'teste barber','test barber'} and _norm(getattr(u, 'username', '')) not in {'teste','test'}]
+        all_barbers.sort(key=lambda u: counts_map.get(u.id, 0), reverse=True)
+        writer.writerow(['Barbeiro', 'Concluídos'])
+        for u in all_barbers:
+            writer.writerow([getattr(u, 'display_name', None) or getattr(u, 'username', ''), counts_map.get(u.id, 0)])
+
+        if is_special_finances_view and not is_admin:
+            writer.writerow([])
+            writer.writerow(['Retiradas por motivo (últimos 30 dias)'])
+            now4 = timezone.localtime()
+            start4 = now4 - timezone.timedelta(days=30)
+            end4 = now4
+            ub4 = start4.astimezone(datetime.timezone.utc)
+            ue4 = end4.astimezone(datetime.timezone.utc)
+            cats = ['Fornecedores', 'Itens básicos', 'Aluguel Agua/Luz', 'Produtos Freezer', 'Outros']
+            sums = {c: Decimal('0') for c in cats}
+            for w in Withdrawal.objects.filter(created_at__gte=ub4, created_at__lt=ue4):
+                note = (getattr(w, 'note', '') or '')
+                reason = 'Outros'
+                if note.startswith('['):
+                    try:
+                        end_idx = note.find(']')
+                        if end_idx > 1:
+                            tag = note[1:end_idx].strip()
+                            reason = tag if tag in sums else 'Outros'
+                    except Exception:
+                        reason = 'Outros'
+                amt = getattr(w, 'amount', Decimal('0')) or Decimal('0')
+                sums[reason] = (sums.get(reason, Decimal('0')) + amt)
+            ordered = sorted(((c, sums[c]) for c in cats), key=lambda x: x[1], reverse=True)
+            writer.writerow(['Motivo', 'Valor (R$)'])
+            for c,v in ordered:
+                writer.writerow([c, str(v)])
+
         return response
 
     return render(request, 'panel_finances.html', {
@@ -428,6 +625,14 @@ def finances_chart_data(request: HttpRequest):
     include_edited = request.GET.get('include_edited', '0') in ('1', 'true', 'on')
     now_local = timezone.localtime()
 
+    user: User = request.user  # type: ignore
+    is_admin = user.role == User.ADMIN
+    special_full_access_usernames = {"kaue", "alafy", "alafi", "alefi"}
+    is_special_finances_view = str(getattr(user, 'username', '')).lower() in special_full_access_usernames
+    appts_filter = {}
+    if not (is_admin or is_special_finances_view):
+        appts_filter['barber'] = user
+
     def mk_range_points(start_local, end_local, granularity='day'):
         points = []
         details = {}
@@ -439,7 +644,7 @@ def finances_chart_data(request: HttpRequest):
                 utc_beg = cur.astimezone(datetime.timezone.utc)
                 utc_end = nxt.astimezone(datetime.timezone.utc)
                 # count done appointments
-                done_qs = Appointment.objects.filter(status=Appointment.STATUS_DONE, start_datetime__gte=utc_beg, start_datetime__lt=utc_end)
+                done_qs = Appointment.objects.filter(status=Appointment.STATUS_DONE, start_datetime__gte=utc_beg, start_datetime__lt=utc_end, **appts_filter)
                 done_ids = set(done_qs.values_list('id', flat=True))
                 count_ids = set(done_ids)
                 if include_edited:
@@ -465,7 +670,7 @@ def finances_chart_data(request: HttpRequest):
                 nxt = (cur + step)
                 utc_beg = cur.astimezone(datetime.timezone.utc)
                 utc_end = nxt.astimezone(datetime.timezone.utc)
-                done_qs = Appointment.objects.filter(status=Appointment.STATUS_DONE, start_datetime__gte=utc_beg, start_datetime__lt=utc_end)
+                done_qs = Appointment.objects.filter(status=Appointment.STATUS_DONE, start_datetime__gte=utc_beg, start_datetime__lt=utc_end, **appts_filter)
                 done_ids = set(done_qs.values_list('id', flat=True))
                 count_ids = set(done_ids)
                 if include_edited:
@@ -532,6 +737,217 @@ def finances_chart_data(request: HttpRequest):
 
 
 @login_required
+def finances_revenue_data(request: HttpRequest):
+    user: User = request.user  # type: ignore
+    is_admin = user.role == User.ADMIN
+    special_full_access_usernames = {"kaue", "alafy", "alafi", "alefi"}
+    is_special_finances_view = str(getattr(user, 'username', '')).lower() in special_full_access_usernames
+    month_str = request.GET.get('month') or ''
+    now_local = timezone.localtime()
+    try:
+        parts = (month_str or '').split('-')
+        year = int(parts[0]) if len(parts) >= 1 and parts[0] else now_local.year
+        month = int(parts[1]) if len(parts) >= 2 and parts[1] else now_local.month
+        start_local = datetime.datetime(year=year, month=month, day=1, hour=0, minute=0, second=0, microsecond=0, tzinfo=now_local.tzinfo)
+    except Exception:
+        start_local = now_local.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    if start_local.month == 12:
+        end_local = start_local.replace(year=start_local.year + 1, month=1)
+    else:
+        end_local = start_local.replace(month=start_local.month + 1)
+
+    sales_filter = {}
+    appts_filter = {}
+    withdraw_filter = {}
+    if not (is_admin or is_special_finances_view):
+        sales_filter['barber'] = user
+        appts_filter['barber'] = user
+        withdraw_filter['user'] = user
+
+    step = datetime.timedelta(days=1)
+    points = []
+    cur = start_local
+    while cur < end_local:
+        nxt = cur + step
+        utc_beg = cur.astimezone(datetime.timezone.utc)
+        utc_end = nxt.astimezone(datetime.timezone.utc)
+        appts_val = Appointment.objects.filter(status=Appointment.STATUS_DONE, end_datetime__gte=utc_beg, end_datetime__lt=utc_end, **appts_filter).aggregate(total=Sum('service__price'))['total'] or 0
+        sales_val = Sale.objects.filter(created_at__gte=utc_beg, created_at__lt=utc_end, status='paid', **sales_filter).aggregate(total=Sum('amount'))['total'] or 0
+        withdraw_val = Withdrawal.objects.filter(created_at__gte=utc_beg, created_at__lt=utc_end, **withdraw_filter).aggregate(total=Sum('amount'))['total'] or 0
+        net = (appts_val or 0) + (sales_val or 0) - (withdraw_val or 0)
+        ts = int(cur.astimezone(datetime.timezone.utc).timestamp() * 1000)
+        points.append([ts, float(net)])
+        cur = nxt
+
+    series = [{ 'name': 'Receita líquida', 'data': points }]
+    return JsonResponse({'series': series})
+
+
+@login_required
+def finances_services_breakdown_data(request: HttpRequest):
+    user: User = request.user  # type: ignore
+    is_admin = user.role == User.ADMIN
+    special_full_access_usernames = {"kaue", "alafy", "alafi", "alefi"}
+    is_special_finances_view = str(getattr(user, 'username', '')).lower() in special_full_access_usernames
+    month_str = request.GET.get('month') or ''
+    now_local = timezone.localtime()
+    try:
+        parts = (month_str or '').split('-')
+        year = int(parts[0]) if len(parts) >= 1 and parts[0] else now_local.year
+        month = int(parts[1]) if len(parts) >= 2 and parts[1] else now_local.month
+        start_local = datetime.datetime(year=year, month=month, day=1, hour=0, minute=0, second=0, microsecond=0, tzinfo=now_local.tzinfo)
+    except Exception:
+        start_local = now_local.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    if start_local.month == 12:
+        end_local = start_local.replace(year=start_local.year + 1, month=1)
+    else:
+        end_local = start_local.replace(month=start_local.month + 1)
+
+    appts_filter = {}
+    if not (is_admin or is_special_finances_view):
+        appts_filter['barber'] = user
+
+    utc_beg = start_local.astimezone(datetime.timezone.utc)
+    utc_end = end_local.astimezone(datetime.timezone.utc)
+
+    qs = Appointment.objects.filter(status=Appointment.STATUS_DONE, end_datetime__gte=utc_beg, end_datetime__lt=utc_end, **appts_filter)
+    rows = qs.values('service__title').annotate(c=Count('id')).order_by('-c')
+    labels = []
+    series = []
+    for r in rows:
+        title = r['service__title'] or 'Serviço'
+        labels.append(title)
+        series.append(int(r['c'] or 0))
+
+    if not labels:
+        labels = ['Sem registros']
+        series = [0]
+
+    return JsonResponse({'labels': labels, 'series': series})
+
+@login_required
+def finances_withdrawals_funnel_data(request: HttpRequest):
+    user: User = request.user  # type: ignore
+    is_admin = user.role == User.ADMIN
+    special_full_access_usernames = {"kaue", "alafy", "alafi", "alefi"}
+    is_special_finances_view = str(getattr(user, 'username', '')).lower() in special_full_access_usernames
+    if not is_special_finances_view or is_admin:
+        return JsonResponse({'labels': [], 'series': []})
+    now_local = timezone.localtime()
+    start_local = now_local - timezone.timedelta(days=30)
+    end_local = now_local
+    utc_beg = start_local.astimezone(datetime.timezone.utc)
+    utc_end = end_local.astimezone(datetime.timezone.utc)
+    qs = Withdrawal.objects.filter(created_at__gte=utc_beg, created_at__lt=utc_end)
+    cats = ['Fornecedores', 'Itens básicos', 'Aluguel Agua/Luz', 'Produtos Freezer', 'Outros']
+    sums = {c: Decimal('0') for c in cats}
+    for w in qs:
+        note = (getattr(w, 'note', '') or '')
+        reason = 'Outros'
+        if note.startswith('['):
+            try:
+                end_idx = note.find(']')
+                if end_idx > 1:
+                    tag = note[1:end_idx].strip()
+                    reason = tag if tag in sums else 'Outros'
+            except Exception:
+                reason = 'Outros'
+        amt = getattr(w, 'amount', Decimal('0')) or Decimal('0')
+        sums[reason] = (sums.get(reason, Decimal('0')) + amt)
+    ordered = sorted(((c, sums[c]) for c in cats), key=lambda x: x[1], reverse=True)
+    labels = [c for c, _ in ordered]
+    series = [float(v) for _, v in ordered]
+    return JsonResponse({'labels': labels, 'series': series})
+
+@login_required
+def finances_barber_stats_data(request: HttpRequest):
+    user: User = request.user  # type: ignore
+    is_admin = user.role == User.ADMIN
+    special_full_access_usernames = {"kaue", "alafy", "alafi", "alefi"}
+    is_special_finances_view = str(getattr(user, 'username', '')).lower() in special_full_access_usernames
+    rng = (request.GET.get('range') or '').strip().lower()
+    now_local = timezone.localtime()
+    if rng in ('today', 'day'):
+        start_local = now_local.replace(hour=0, minute=0, second=0, microsecond=0)
+        end_local = now_local
+    elif rng in ('7', 'week'):
+        start_local = now_local - timezone.timedelta(days=7)
+        end_local = now_local
+    elif rng in ('15',):
+        start_local = now_local - timezone.timedelta(days=15)
+        end_local = now_local
+    elif rng in ('60', '2m', '2meses', '2mes'):
+        start_local = now_local - timezone.timedelta(days=60)
+        end_local = now_local
+    else:
+        start_local = now_local - timezone.timedelta(days=30)
+        end_local = now_local
+
+    utc_beg = start_local.astimezone(datetime.timezone.utc)
+    utc_end = end_local.astimezone(datetime.timezone.utc)
+
+    qs = Appointment.objects.filter(
+        status=Appointment.STATUS_DONE,
+        end_datetime__gte=utc_beg,
+        end_datetime__lt=utc_end,
+    )
+
+    rows = list(qs.values('barber').annotate(c=Count('id')).order_by('-c'))
+    counts_map = {r['barber']: int(r.get('c') or 0) for r in rows}
+    all_barbers = list(User.objects.filter(role=User.BARBER).order_by('display_name', 'username'))
+    excluded_labels = {'teste barber', 'test barber'}
+    excluded_users = {'teste', 'test'}
+    def _norm(s):
+        return (s or '').strip().lower()
+    all_barbers = [u for u in all_barbers if _norm(getattr(u, 'display_name', '')) not in excluded_labels and _norm(getattr(u, 'username', '')) not in excluded_users]
+    assets_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'public', 'assets', 'img'))
+    name_to_file = {}
+    try:
+        for f in os.listdir(assets_dir):
+            base, ext = os.path.splitext(f)
+            name_to_file[base.lower()] = f
+    except Exception:
+        name_to_file = {}
+    # Ordenar por contagem desc para gráfico mais informativo
+    all_barbers.sort(key=lambda u: counts_map.get(u.id, 0), reverse=True)
+
+    labels = []
+    series = []
+    barbers = []
+    for u in all_barbers:
+        name = (getattr(u, 'display_name', None) or getattr(u, 'username', 'Barbeiro'))
+        c = counts_map.get(u.id, 0)
+        avatar_url = ''
+        try:
+            if getattr(u, 'avatar', None):
+                avatar_url = u.avatar.url
+        except Exception:
+            avatar_url = ''
+        mapping = {
+            'alafy': '/static/assets/img/alafy.JPEG',
+            'emerson': '/static/assets/img/emerson.JPG',
+            'kaue': '/static/assets/img/kaue.jpg',
+            'kevin': '/static/assets/img/kevin.JPEG',
+            'rikelv': '/static/assets/img/rikelv.JPEG',
+        }
+        dn = (name or '').strip().lower()
+        un = (getattr(u, 'username', '') or '').strip().lower()
+        if not avatar_url:
+            avatar_url = mapping.get(dn) or mapping.get(un) or ''
+        if not avatar_url:
+            for base in [dn, un]:
+                fn = name_to_file.get(base)
+                if fn:
+                    avatar_url = f"/static/assets/img/{fn}"
+                    break
+    
+        labels.append(name)
+        series.append(c)
+        barbers.append({'id': u.id, 'name': name, 'avatar_url': avatar_url, 'count': c})
+
+    return JsonResponse({'labels': labels, 'series': series, 'barbers': barbers})
+
+@login_required
 def panel_profile(request: HttpRequest):
     # Permitir que barbeiros criem bloqueios de horários para o dia atual
     user: User = request.user  # type: ignore
@@ -552,6 +968,19 @@ def panel_profile(request: HttpRequest):
             target_barber = candidate
         except Exception:
             target_barber = user
+
+    if request.method == 'POST' and (request.POST.get('action') == 'upload_avatar'):
+        try:
+            f = request.FILES.get('avatar')
+            if not f:
+                raise ValueError('Selecione uma imagem válida.')
+            target_barber.avatar = f
+            target_barber.save()
+            message = 'Foto atualizada com sucesso.'
+            message_type = 'success'
+        except Exception as e:
+            message = str(e) if str(e) else 'Falha ao atualizar a foto.'
+            message_type = 'danger'
 
     # Seleção de data: padrão hoje, permite até 30 dias à frente
     today = timezone.localdate()

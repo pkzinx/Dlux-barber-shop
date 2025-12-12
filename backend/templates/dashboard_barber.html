@@ -1,6 +1,32 @@
 {% extends 'base.html' %}
 {% block title %}Painel do Barbeiro{% endblock %}
 {% block content %}
+<div class="d-flex justify-content-end align-items-center mb-2">
+  <button class="btn btn-sm btn-accent d-inline-flex align-items-center" id="kpiToggleBarber" type="button" data-bs-toggle="collapse" data-bs-target="#kpiCollapseBarber" aria-expanded="true" aria-controls="kpiCollapseBarber">
+    <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" class="me-1"><path d="M7 10l5 5 5-5z"></path></svg>
+    <span class="kpi-toggle-label">Ocultar</span>
+  </button>
+  
+  <script>
+    document.addEventListener('DOMContentLoaded', function(){
+      var el = document.getElementById('kpiCollapseBarber');
+      var btn = document.getElementById('kpiToggleBarber');
+      if (!el || !btn || !window.bootstrap) return;
+      var inst = window.bootstrap.Collapse.getOrCreateInstance(el, { toggle: false });
+      var label = btn.querySelector('.kpi-toggle-label');
+      function syncLabel(){ var opened = el.classList.contains('show'); if(label){ label.textContent = opened ? 'Ocultar' : 'Mostrar'; } }
+      if (window.innerWidth < 992) { inst.hide(); btn.setAttribute('aria-expanded', 'false'); syncLabel(); }
+      btn.addEventListener('click', function(){
+        var opened = el.classList.contains('show');
+        if (opened) { inst.hide(); btn.setAttribute('aria-expanded', 'false'); }
+        else { inst.show(); btn.setAttribute('aria-expanded', 'true'); }
+      });
+      el.addEventListener('shown.bs.collapse', syncLabel);
+      el.addEventListener('hidden.bs.collapse', syncLabel);
+    });
+  </script>
+</div>
+<div class="collapse show" id="kpiCollapseBarber">
 <div class="row g-3 mb-4">
   <div class="col-sm-6 col-lg-3">
     <div class="card card-panel">
@@ -34,6 +60,7 @@
       </div>
     </div>
   </div>
+</div>
 </div>
 
   <div class="card card-panel mb-4">

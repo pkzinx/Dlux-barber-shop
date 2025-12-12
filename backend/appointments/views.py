@@ -242,8 +242,8 @@ class AppointmentViewSet(viewsets.ModelViewSet):
         while cur + duration <= window_end:
             proposed_start = cur
             proposed_end = cur + duration
-            # Conflito se existir range com start < proposed_end e end > proposed_start
-            conflict = any(rs < proposed_end and re > proposed_start for rs, re in ranges)
+            buf = datetime.timedelta(minutes=5)
+            conflict = any((rs - buf) < proposed_end and (re + buf) > proposed_start for rs, re in ranges)
             if not conflict:
                 slots.append(proposed_start.strftime('%H:%M'))
             cur += step

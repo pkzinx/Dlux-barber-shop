@@ -7,9 +7,14 @@ from .views import (
     panel_appointments,
     panel_finances,
     finances_chart_data,
+    finances_revenue_data,
+    finances_services_breakdown_data,
+    finances_barber_stats_data,
+    finances_withdrawals_funnel_data,
     panel_profile,
     panel_history,
 )
+from services.views import panel_services
 
 urlpatterns = [
     path('login/', auth_views.LoginView.as_view(template_name='login.html'), name='login'),
@@ -20,6 +25,11 @@ urlpatterns = [
     path('painel/agendamentos/', panel_appointments, name='panel_appointments'),
     path('painel/financas/', panel_finances, name='panel_finances'),
     path('painel/financas/chart-data/', finances_chart_data, name='finances_chart_data'),
+    path('painel/financas/revenue-data/', finances_revenue_data, name='finances_revenue_data'),
+    path('painel/financas/services-breakdown-data/', finances_services_breakdown_data, name='finances_services_breakdown_data'),
+    path('painel/financas/barber-stats-data/', finances_barber_stats_data, name='finances_barber_stats_data'),
+    path('painel/financas/withdrawals-funnel-data/', finances_withdrawals_funnel_data, name='finances_withdrawals_funnel_data'),
     path('painel/perfil/', panel_profile, name='panel_profile'),
     path('painel/historico/', panel_history, name='panel_history'),
+    path('painel/servicos/', panel_services, name='panel_services'),
 ]

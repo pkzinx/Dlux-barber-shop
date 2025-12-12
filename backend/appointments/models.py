@@ -39,16 +39,14 @@ class Appointment(models.Model):
         if not self.end_datetime and self.service:
             self.end_datetime = self.start_datetime + timezone.timedelta(minutes=self.service.duration_minutes)
 
-        # validar conflito com buffer de 1 minuto entre agendamentos
-        # Regra: não permitir encostar agendamentos, exigindo 1min entre o fim/início
-        # Conflito se: existing.start < (new.end + 1min) E (existing.end + 1min) > new.start
+        
         if self.barber_id and self.start_datetime and self.end_datetime:
             qs = Appointment.objects.filter(barber=self.barber, status=self.STATUS_SCHEDULED)
             if self.pk:
                 qs = qs.exclude(pk=self.pk)
             conflict = qs.filter(
-                start_datetime__lt=(self.end_datetime + timezone.timedelta(minutes=1)),
-                end_datetime__gt=(self.start_datetime - timezone.timedelta(minutes=1))
+                start_datetime__lt=(self.end_datetime + timezone.timedelta(minutes=5)),
+                end_datetime__gt=(self.start_datetime - timezone.timedelta(minutes=5))
             ).exists()
             if conflict:
                 raise ValidationError('Conflito de horário: barbeiro já possui agendamento nesse intervalo.')

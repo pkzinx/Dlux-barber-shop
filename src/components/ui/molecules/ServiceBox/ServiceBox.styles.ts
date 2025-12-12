@@ -3,16 +3,15 @@ import media from 'styled-media-query';
 
 export const Wrapper = styled.section`
   ${({ theme }) => css`
-    width: fit-content;
     display: flex;
     width: 100%;
     height: 100%;
     flex-direction: column;
     gap: ${theme.spacings.large};
     padding: ${theme.spacings.large} calc(${theme.spacings.large} / 2);
-    background: rgba(0, 0, 0, 0.3);
-    border: 0.3rem solid ${theme.colors.white};
-    backdrop-filter: blur(1rem);
+    background: #0f111a;
+    border: 1px solid #1f2230;
+    box-shadow: 0 8px 26px rgba(0, 0, 0, 0.35);
     border-radius: 1rem;
 
     ${media.greaterThan('medium')`

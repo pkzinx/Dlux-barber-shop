@@ -1,9 +1,9 @@
+import Link from 'next/link';
 import MediaMatch from '../../molecules/MediaMatch/MediaMatch';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { Background } from '../../atoms/Background/Background';
 import { Button } from '../../atoms/Button/Button';
-import { ServicesModal, ServiceItem } from '../../molecules/ServicesModal/ServicesModal';
 import { Heading } from '../../molecules/Heading/Heading';
 import {
   ServiceBox,
@@ -12,6 +12,7 @@ import {
 import { Slider, SliderSettings } from '../../molecules/Slider/Slider';
 import { ScheduleModal } from '../../molecules/ScheduleModal/ScheduleModal';
 import contributors from '../SectionContributors/contributors.mock';
+import { ServicesModal, ServiceItem } from '../../molecules/ServicesModal/ServicesModal';
 
 import * as S from './MainServices.styles';
 
@@ -41,6 +42,8 @@ export const MainServices = ({ items }: MainServicesProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [selectedService, setSelectedService] = useState<string | undefined>();
   const [isServicesOpen, setIsServicesOpen] = useState(false);
+  const [servicesList, setServicesList] = useState<ServiceItem[]>([]);
+  const [loadingServices, setLoadingServices] = useState(false);
 
   // Exibir os 5 barbeiros da seção de equipe com nomes e fotos
   const barbers = contributors.map((c) => ({ name: c.name, src: c.src }));
@@ -50,18 +53,64 @@ export const MainServices = ({ items }: MainServicesProps) => {
     setIsOpen(true);
   };
 
-  const extraServices: ServiceItem[] = [
-    { title: 'Corte + escova', duration: '35min', price: 'a partir de R$ 35,00' },
-    { title: 'Corte + luzes', duration: '1h:30min', price: 'a partir de R$ 70,00' },
-    { title: 'Corte + sobrancelha', duration: '35min', price: 'a partir de R$ 35,00' },
-    { title: 'Escova', duration: '15min', price: 'a partir de R$ 10,00' },
-    { title: 'Hidratação', duration: '15min', price: 'a partir de R$ 25,00' },
-    { title: 'Luzes', duration: '1h:00min', price: 'a partir de R$ 40,00' },
-    { title: 'Pezinho perfil acabamento', duration: '5min', price: 'a partir de R$ 10,00' },
-    { title: 'Progressiva', duration: '1h:00min', price: 'a partir de R$ 50,00' },
-    { title: 'Sobrancelha', duration: '30min', price: 'a partir de R$ 20,00' },
-    { title: 'Tintura na barba', duration: '30min', price: 'a partir de R$ 25,00' },
-  ];
+  const fetchServices = async () => {
+    setLoadingServices(true);
+    try {
+      // Em desenvolvimento, usar localhost:8000 diretamente
+      const apiBase = typeof window !== 'undefined' 
+        ? (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000')
+        : 'http://localhost:8000';
+      
+      const url = `${apiBase}/api/services/public/`;
+      const res = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+        },
+        cache: 'no-store',
+      });
+      
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+      }
+      
+      const data = await res.json();
+      const list = Array.isArray(data) ? data : data?.results || [];
+      const mapped: ServiceItem[] = list.map((s: any) => ({
+        title: s.title,
+        duration: s.duration_minutes ? `${s.duration_minutes} min` : '',
+        price: s.price
+          ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(s.price))
+          : '',
+      }));
+      setServicesList(mapped);
+    } catch (err) {
+      console.error('Erro ao buscar serviços da API:', err);
+      // fallback: usar serviços atuais do slider se falhar
+      const fallback: ServiceItem[] = items.flatMap(({ infos }) =>
+        infos.map(info => ({
+          title: info.title,
+          duration: '',
+          price: info.price,
+        }))
+      );
+      setServicesList(fallback);
+    } finally {
+      setLoadingServices(false);
+    }
+  };
+
+  // Buscar serviços ao montar o componente
+  useEffect(() => {
+    fetchServices();
+  }, [items]);
+
+  // Buscar serviços sempre que o modal abrir para garantir dados atualizados
+  useEffect(() => {
+    if (isServicesOpen) {
+      fetchServices();
+    }
+  }, [isServicesOpen]);
 
   return (
     <S.Wrapper>
@@ -119,9 +168,10 @@ export const MainServices = ({ items }: MainServicesProps) => {
       <ServicesModal
         isOpen={isServicesOpen}
         onClose={() => setIsServicesOpen(false)}
-        services={extraServices}
+        services={servicesList}
         onSchedule={openSchedule}
       />
+
       </Background>
     </S.Wrapper>
   );

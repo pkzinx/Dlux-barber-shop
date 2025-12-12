@@ -25,15 +25,7 @@
   <div class="tab-pane fade show active" id="agenda-panel" role="tabpanel" aria-labelledby="agenda-tab">
         <div class="card card-panel mb-4">
       <div class="card-body p-3">
-        <div class="d-flex justify-content-between align-items-center mb-2">
-          <div class="d-flex align-items-center gap-2">
-            <label for="calendarBarberFilter" class="small muted mb-0">Barbeiro:</label>
-            <select id="calendarBarberFilter" class="form-select form-select-sm">
-              <option value="all">Todos os barbeiros</option>
-            </select>
-          </div>
-          <div class="small text-muted">Clique em um dia ou evento para ver os detalhes</div>
-        </div>
+        
         <div id="calendar" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;" data-current-user-id="{{ user.id }}" data-current-user-role="{{ user.role }}"></div>
       </div>
     </div>
@@ -271,67 +263,40 @@
 
   document.addEventListener('DOMContentLoaded', function() {
     const calendarEl = document.getElementById('calendar');
-    const barberFilterEl = document.getElementById('calendarBarberFilter');
     const currentUserId = parseInt(calendarEl.getAttribute('data-current-user-id') || '0', 10);
     const currentUserRole = (calendarEl.getAttribute('data-current-user-role') || '').toLowerCase();
 
-    // Populate barbers list for filter
-    function loadBarbersForCalendar(){
-      fetch('/api/appointments/barbers/')
-        .then(r => r.json())
-        .then(data => {
-          const list = Array.isArray(data?.barbers) ? data.barbers : (data || []);
-          // keep existing 'all' option
-          list.forEach(b => {
-            const opt = document.createElement('option');
-            opt.value = b.id;
-            opt.textContent = b.name || (b.display_name || b.username || `#${b.id}`);
-            opt.dataset.username = (b.username || (b.name || '')).toLowerCase();
-            barberFilterEl.appendChild(opt);
-          });
-          // Default selection: if user is barber, preselect them and disable
-          if (currentUserRole === 'barber' && currentUserId) {
-            barberFilterEl.value = String(currentUserId);
-            barberFilterEl.disabled = true;
-            applyBarberHighlight(barberFilterEl.value);
-          }
-        }).catch(()=>{});
-    }
+    
 
-    const calendar = new FullCalendar.Calendar(calendarEl, {
-      locale: 'pt-br',
-      firstDay: 1,
-      initialView: window.innerWidth < 768 ? 'dayGridDay' : 'dayGridMonth',
-      headerToolbar: {
-        left: window.innerWidth < 768 ? 'prev,next' : 'prev,next today',
-        center: 'title',
-        right: window.innerWidth < 768 ? '' : 'dayGridMonth,timeGridWeek,timeGridDay'
-      },
-      height: 'auto',
-      contentHeight: 'auto',
-      dateClick: function(info){
-        // When clicking a day in month view, switch to day view focused on that date
-        const targetDate = info.date;
-        // If current user is barber, ensure filter is set to themselves
-        if (currentUserRole === 'barber' && currentUserId) {
-          barberFilterEl.value = String(currentUserId);
-          barberFilterEl.disabled = true;
-          applyBarberHighlight(barberFilterEl.value);
-        }
-        calendar.changeView(window.innerWidth < 768 ? 'dayGridDay' : 'timeGridDay');
-        calendar.gotoDate(targetDate);
-      },
-      eventClick: function(info){
-        // When clicking an event in month view, open day view and filter to that barber
-        const ev = info.event;
-        const bId = ev.extendedProps.barberId || 0;
-        if (bId) {
-          barberFilterEl.value = String(bId);
-          applyBarberHighlight(barberFilterEl.value);
-        }
-        calendar.changeView(window.innerWidth < 768 ? 'dayGridDay' : 'timeGridDay');
-        calendar.gotoDate(ev.start);
-      },
+      const calendar = new FullCalendar.Calendar(calendarEl, {
+        locale: 'pt-br',
+        firstDay: 1,
+        initialView: window.innerWidth < 768 ? 'dayGridMonth' : 'dayGridMonth',
+        headerToolbar: {
+          left: 'prev,next',
+          center: 'title',
+          right: 'dayGridMonth,timeGridWeek,timeGridDay'
+        },
+        buttonText: { today: 'hoje', month: 'mês', week: 'semana', day: 'dia' },
+        slotMinTime: '08:00:00',
+        slotMaxTime: '20:00:00',
+        allDayText: 'todo o dia',
+        allDaySlot: true,
+        height: 'auto',
+        contentHeight: 'auto',
+        dateClick: function(info){
+          // When clicking a day in month view, switch to day view focused on that date
+          const targetDate = info.date;
+          calendar.changeView('timeGridDay');
+          calendar.gotoDate(targetDate);
+        },
+        eventClick: function(info){
+          // When clicking an event in month view, open day view and filter to that barber
+          const ev = info.event;
+          const bId = ev.extendedProps.barberId || 0;
+          calendar.changeView('timeGridDay');
+          calendar.gotoDate(ev.start);
+        },
       eventDidMount: function(info) {
         // Adicionar classe de cor ao evento
         const barber = (info.event.extendedProps.barber || '').toLowerCase();
@@ -397,8 +362,7 @@
           start: startDate.toISOString().split('T')[0],
           end: endDate.toISOString().split('T')[0],
         });
-        const barberVal = barberFilterEl.value || 'all';
-        if (barberVal && barberVal !== 'all') params.set('barber', barberVal);
+        // Sem filtro: mostrar todos os barbeiros
 
         fetch(`/api/appointments/?${params.toString()}`)
           .then(r => r.json())
@@ -427,41 +391,11 @@
       }
     });
 
-    function applyBarberHighlight(barberId){
-      const opt = barberFilterEl.querySelector(`option[value="${barberId}"]`);
-      const toolbarTitle = document.querySelector('.fc .fc-toolbar-title');
-      if (!opt || !toolbarTitle) {
-        // reset
-        calendarEl.style.borderTop = '';
-        if (toolbarTitle) toolbarTitle.style.color = '';
-        return;
-      }
-      const username = (opt.dataset.username || '').toLowerCase();
-      const color = barberColors[username] || '';
-      if (color) {
-        calendarEl.style.borderTop = `4px solid ${color}`;
-        toolbarTitle.style.color = color;
-      } else {
-        calendarEl.style.borderTop = '';
-        toolbarTitle.style.color = '';
-      }
-      // refetch events to apply filter
-      calendar.refetchEvents();
-    }
-
-    barberFilterEl.addEventListener('change', function(){ applyBarberHighlight(this.value); });
-
-    loadBarbersForCalendar();
-
+    
+    
     calendar.render();
-
-    // Atualizar view ao redimensionar (responsivo)
-    window.addEventListener('resize', () => {
-      const newView = window.innerWidth < 768 ? 'dayGridDay' : 'dayGridMonth';
-      if (calendar.view.type !== newView) {
-        calendar.changeView(newView);
-      }
-    });
+    
+    // Em mobile, manter visualização mês por padrão
   });
 </script>
 

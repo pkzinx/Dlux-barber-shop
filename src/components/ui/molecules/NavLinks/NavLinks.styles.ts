@@ -1,6 +1,7 @@
 import styled, { css } from 'styled-components';
 import { customMedia } from '../../../../utils/media/customMedia';
 import { Link } from 'react-scroll';
+import NextLink from 'next/link';
 
 type ActiveProps = {
   $isActive?: boolean;
@@ -54,6 +55,22 @@ export const NavLink = styled(Link).attrs({
   offset: -100,
   isDynamic: true,
 })`
+  ${({ theme }) => css`
+    text-decoration: none;
+    font-size: ${theme.font.sizes.medium};
+    transition: 0.3s linear;
+    cursor: pointer;
+
+    &:hover,
+    &:focus {
+      color: ${theme.colors.primary};
+      text-shadow: 0 0 1rem ${theme.colors.primary};
+      outline: none;
+    }
+  `}
+`;
+
+export const ExternalLink = styled(NextLink)`
   ${({ theme }) => css`
     text-decoration: none;
     font-size: ${theme.font.sizes.medium};

@@ -4,13 +4,13 @@
 <div class="d-flex justify-content-between align-items-center mb-3">
   <h3 class="mb-0">Finanças</h3>
   <div>
-    <a href="?export=csv" class="btn btn-sm btn-accent d-inline-flex align-items-center">
+    <a id="exportCsvBtn" href="#" class="btn btn-sm btn-accent d-inline-flex align-items-center">
       <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-download me-2" viewBox="0 0 16 16">
         <path d="M.5 9.9a.5.5 0 0 1 .5-.5h3.5V1.5a.5.5 0 0 1 1 0v7.9H9a.5.5 0 0 1 .354.854l-2.5 2.5a.5.5 0 0 1-.708 0l-2.5-2.5A.5.5 0 0 1 3.5 9.4H1a.5.5 0 0 1-.5-.5Z"/>
         <path d="M.5 15a.5.5 0 0 0 .5.5h14a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-1 0v2.5H1V12a.5.5 0 0 0-1 0v3Z"/>
       </svg>
-      Exportar CSV (mês)
-    </a>
+      Exportar CSV (visão atual)
+      </a>
     {% if can_withdraw %}
     <button type="button" class="btn btn-sm btn-danger ms-2" data-bs-toggle="modal" data-bs-target="#withdrawModal">
       Retirada
@@ -33,12 +33,6 @@
         <div class="card-body">
           <div class="kpi">R$ {{ kpis.month_revenue }}</div>
           <div class="kpi-label">Faturamento Mês</div>
-        </div>
-      </div>
-      <div class="card card-panel kpi-card">
-        <div class="card-body">
-          <div class="kpi">{{ kpis.appts_completed }}</div>
-          <div class="kpi-label">Concluídos Hoje</div>
         </div>
       </div>
       <div class="card card-panel kpi-card">
@@ -90,14 +84,6 @@
   <div class="col-sm-6 col-lg">
     <div class="card card-panel">
       <div class="card-body">
-        <div class="kpi">{{ kpis.appts_completed }}</div>
-        <div class="kpi-label">Concluídos Hoje</div>
-      </div>
-    </div>
-  </div>
-  <div class="col-sm-6 col-lg">
-    <div class="card card-panel">
-      <div class="card-body">
         <div class="kpi">{{ kpis.appts_cancelled }}</div>
         <div class="kpi-label">Cancelados Hoje</div>
       </div>
@@ -140,6 +126,16 @@
             <input type="number" step="0.01" min="0" class="form-control bg-dark text-light border-secondary" id="withdrawAmount" name="withdraw_amount" placeholder="0,00" required>
             <label for="withdrawAmount">Valor (R$)</label>
           </div>
+          <div class="form-floating mb-3">
+            <select class="form-select bg-dark text-light border-secondary" id="withdrawReason" name="withdraw_reason" required>
+              <option value="Fornecedores">Fornecedores</option>
+              <option value="Itens básicos">Itens básicos</option>
+              <option value="Aluguel Agua/Luz">Aluguel Agua/Luz</option>
+              <option value="Produtos Freezer">Produtos Freezer</option>
+              <option value="Outros">Outros</option>
+            </select>
+            <label for="withdrawReason">Motivo da retirada</label>
+          </div>
           <div class="form-floating">
             <textarea class="form-control bg-dark text-light border-secondary" placeholder="Observação (opcional)" id="withdrawNote" name="withdraw_note" style="height: 100px"></textarea>
             <label for="withdrawNote">Observação (opcional)</label>
@@ -157,7 +153,7 @@
 
 <div class="row g-3">
   <div class="col-lg-12">
-    <div class="card card-panel mb-4">
+    <div class="card widget-card bg-dark text-light border-secondary shadow-sm mb-4">
       <div class="card-header d-flex justify-content-between align-items-center">
         <div class="d-flex align-items-center gap-3">
           <span class="fw-semibold">Gráfico de agendamentos concluídos</span>
@@ -180,7 +176,7 @@
         </div>
       </div>
       
-      <div id="chartBody" class="collapse show card-body">
+      <div id="chartBody" class="collapse show card-body p-4">
         <div id="chart">
           <div id="timeline-chart"></div>
         </div>
@@ -188,38 +184,6 @@
     </div>
   </div>
 
-  <div class="col-lg-6">
-    <div class="card card-panel mb-4">
-      <div class="card-header d-flex justify-content-between align-items-center">
-        <span class="fw-semibold">Todos os serviços</span>
-        <button class="collapse-toggle" data-bs-toggle="collapse" data-bs-target="#allServicesBody" aria-expanded="true" aria-controls="allServicesBody" title="Minimizar/Expandir">
-          <span class="icon">▾</span>
-        </button>
-      </div>
-      <div id="allServicesBody" class="collapse show card-body p-0">
-        <table class="table table-dark table-striped mb-0">
-          <thead>
-            <tr>
-              <th>Serviço</th>
-              <th style="width: 120px;">Tempo</th>
-              <th style="width: 160px;">Valor</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for s in all_services %}
-            <tr>
-              <td>{{ s.title }}</td>
-              <td>{% if s.duration_minutes %}{{ s.duration_minutes }} min{% endif %}</td>
-              <td>R$ {{ s.price }}</td>
-            </tr>
-            {% empty %}
-            <tr><td colspan="3" class="text-center muted">Nenhum serviço cadastrado.</td></tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </div>
 </div>
 
 {% if is_admin %}
@@ -258,55 +222,150 @@
 </div>
 {% endif %}
 
-  <div class="row g-3">
+<div class="row g-3">
   <div class="col-12">
-    <div class="card card-panel mb-4">
-      <div class="card-header d-flex justify-content-between align-items-center">
-        <span class="fw-semibold">Concluídos hoje</span>
-        <button class="collapse-toggle" data-bs-toggle="collapse" data-bs-target="#completedTodayBody" aria-expanded="true" aria-controls="completedTodayBody" title="Minimizar/Expandir">
-          <span class="icon">▾</span>
-        </button>
-      </div>
-      <div id="completedTodayBody" class="collapse show card-body p-0">
-        <table class="table table-dark table-striped mb-0">
-          <thead>
-            <tr>
-              <th style="width: 140px;">Data</th>
-              <th style="width: 80px;">Hora</th>
-              {% if is_admin %}<th>Barbeiro</th>{% endif %}
-              <th>Cliente</th>
-              <th>Serviço</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for a in completed_today %}
-            <tr>
-              <td>{{ a.start_datetime|date:'d/m/Y' }}</td>
-              <td>{{ a.start_datetime|date:'H:i' }}</td>
-              {% if is_admin %}
-              <td>
-                {% if a.barber.avatar %}
-                  <img src="{{ a.barber.avatar.url }}" alt="avatar" class="rounded-circle me-2" style="width:24px;height:24px;object-fit:cover;">
-                {% endif %}
-                {{ a.barber.display_name|default:a.barber.username }}
-              </td>
-              {% endif %}
-              <td>{{ a.client_name }}</td>
-              <td>{{ a.service.title }}</td>
-            </tr>
-            {% empty %}
-            <tr><td colspan="5" class="text-center muted">Sem concluídos hoje.</td></tr>
-            {% endfor %}
-          </tbody>
-        </table>
+    <div class="card widget-card bg-dark text-light border-secondary shadow-sm mb-4">
+      <div class="card-body p-4">
+        <div class="d-block d-sm-flex align-items-center justify-content-between mb-3">
+          <div class="mb-3 mb-sm-0">
+            <h5 class="card-title widget-card-title">Receita Total</h5>
+          </div>
+          <div class="d-flex align-items-center gap-2">
+            <select id="revenueMonthSelect" class="form-select text-secondary border-light-subtle">
+            </select>
+            <button class="collapse-toggle ms-2" data-bs-toggle="collapse" data-bs-target="#revChartBody" aria-expanded="true" aria-controls="revChartBody" title="Minimizar/Expandir"><span class="icon">▾</span></button>
+          </div>
+        </div>
+        <div id="revChartBody" class="collapse show">
+          <div id="bsb-chart-1"></div>
+        </div>
       </div>
     </div>
   </div>
 </div>
 
+<div class="row g-3">
+  <div class="col-12">
+    <div class="card widget-card bg-dark text-light border-secondary shadow-sm mb-4">
+      <div class="card-body p-4">
+        <div class="d-block d-sm-flex align-items-center justify-content-between mb-3">
+          <div class="mb-3 mb-sm-0">
+            <h5 class="card-title widget-card-title">Serviços mais agendados</h5>
+          </div>
+          <div class="d-flex align-items-center gap-2">
+            <div class="form-check form-switch">
+              <input class="form-check-input" type="checkbox" id="servicesCompareSwitch">
+              <label class="form-check-label fs-7" for="servicesCompareSwitch">Comparar</label>
+            </div>
+            <select id="servicesMonthSelect" class="form-select text-secondary border-light-subtle"></select>
+            <select id="servicesMonthCompareSelect" class="form-select text-secondary border-light-subtle" style="display:none"></select>
+            <button class="collapse-toggle ms-2" data-bs-toggle="collapse" data-bs-target="#servicesBody" aria-expanded="true" aria-controls="servicesBody" title="Minimizar/Expandir"><span class="icon">▾</span></button>
+          </div>
+        </div>
+        <div id="servicesBody" class="collapse show">
+          <div class="row g-3 align-items-stretch" id="servicesChartsRow">
+            <div class="col-12 col-lg-6">
+              <div id="bsb-chart-4"></div>
+            </div>
+            <div class="col-12 col-lg-6" id="servicesCompareCol" style="display:none">
+              <div id="bsb-chart-4-compare"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3">
+  <div class="col-12">
+    <div class="card widget-card bg-dark text-light border-secondary shadow-sm mb-4">
+      <div class="card-body p-4">
+        <div class="d-block d-sm-flex align-items-center justify-content-between mb-3">
+          <div class="mb-3 mb-sm-0">
+            <h5 class="card-title widget-card-title">Quantidade de servicos por barbeiro</h5>
+          </div>
+          <div class="d-flex align-items-center gap-2">
+            <select id="barberRangeSelect" class="form-select text-secondary border-light-subtle"></select>
+            <button class="collapse-toggle ms-2" data-bs-toggle="collapse" data-bs-target="#barberChartBody" aria-expanded="true" aria-controls="barberChartBody" title="Minimizar/Expandir"><span class="icon">▾</span></button>
+          </div>
+        </div>
+        <div id="barberChartBody" class="collapse show">
+          <div class="row g-3 align-items-start">
+            <div class="col-12 col-md-4">
+              <div id="barberSideList"></div>
+            </div>
+            <div class="col-12 col-md-8">
+              <div id="bsb-chart-7"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% if not is_admin and is_special_finances_view %}
+<div class="row g-3">
+  <div class="col-12">
+    <div class="card widget-card bg-dark text-light border-secondary shadow-sm mb-4">
+      <div class="card-body p-4">
+        <div class="d-block d-sm-flex align-items-center justify-content-between mb-3">
+          <div class="mb-3 mb-sm-0">
+            <h5 class="card-title widget-card-title">Retiradas por motivo (mês)</h5>
+          </div>
+          <div>
+            <button class="collapse-toggle ms-2" data-bs-toggle="collapse" data-bs-target="#funnelChartBody" aria-expanded="true" aria-controls="funnelChartBody" title="Minimizar/Expandir"><span class="icon">▾</span></button>
+          </div>
+        </div>
+        <div id="funnelChartBody" class="collapse show">
+          <div id="bsb-chart-funnel"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<style>
+#bsb-chart-funnel .canvasjs-chart-credit{display:none !important}
+#bsb-chart-funnel .canvasjs-chart-toolbar{display:none !important}
+.canvasjs-chart-credit{display:none !important}
+.canvasjs-chart-toolbar{display:none !important}
+</style>
+
+<script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+<script src="https://cdn.canvasjs.com/canvasjs.min.js"></script>
 <script>
   // Toggle collapse icon direction for collapse-toggle buttons
   (function(){
+    const btn = document.getElementById('exportCsvBtn');
+    function buildUrl(){
+      const params = new URLSearchParams();
+      params.set('export','csv');
+      const chartRangeEl = document.getElementById('chartRange');
+      const chartCompareEl = document.getElementById('chartCompare');
+      const includeEditedEl = document.getElementById('chartIncludeEdited');
+      const servicesMonthEl = document.getElementById('servicesMonthSelect');
+      const servicesMonthCompareEl = document.getElementById('servicesMonthCompareSelect');
+      const servicesCompareSwitchEl = document.getElementById('servicesCompareSwitch');
+      const barberRangeEl = document.getElementById('barberRangeSelect');
+      if (chartRangeEl) params.set('timeline_range', chartRangeEl.value || '30');
+      if (chartCompareEl) params.set('timeline_compare', chartCompareEl.checked ? '1' : '0');
+      if (includeEditedEl) params.set('include_edited', includeEditedEl.checked ? '1' : '0');
+      if (servicesMonthEl) params.set('services_month', servicesMonthEl.value || '');
+      if (servicesCompareSwitchEl) params.set('services_compare', servicesCompareSwitchEl.checked ? '1' : '0');
+      if (servicesMonthCompareEl && servicesMonthCompareEl.style.display !== 'none') params.set('services_month_compare', servicesMonthCompareEl.value || '');
+      if (barberRangeEl) params.set('barber_range', barberRangeEl.value || '30');
+      return `/painel/financas/?${params.toString()}`;
+    }
+    if (btn){
+      btn.addEventListener('click', function(e){
+        e.preventDefault();
+        const url = buildUrl();
+        window.location.href = url;
+      });
+    }
     const toggles = document.querySelectorAll('.collapse-toggle');
     toggles.forEach(btn => {
       const target = btn.getAttribute('data-bs-target');
@@ -320,10 +379,69 @@
       if (el.classList.contains('show')) icon.textContent = '▾'; else icon.textContent = '▸';
     });
   })();
+
+  (function(){
+    const el = document.getElementById('bsb-chart-funnel');
+    if (!el || !window.CanvasJS) return;
+    function computeHeight(){
+      const w = el.clientWidth || 600;
+      return Math.max(260, Math.min(500, Math.round(w * 0.5)));
+    }
+    let chart = null;
+    function render(labels, series){
+      const total = (series || []).reduce((acc, v) => acc + (v || 0), 0);
+      const dataPoints = (labels || []).map((label, i) => {
+        const y = Number(series[i] || 0);
+        const pct = total ? ((y / total) * 100) : 0;
+        return { y: y, label: label, percentage: Number(pct.toFixed(2)) };
+      }).sort((a,b) => b.y - a.y);
+      el.style.height = computeHeight() + 'px';
+      if (!chart){
+        chart = new CanvasJS.Chart('bsb-chart-funnel', {
+          animationEnabled: true,
+          theme: 'dark2',
+          backgroundColor: 'transparent',
+          data: [{
+            type: 'funnel',
+            indexLabelPlacement: 'inside',
+            indexLabelFontColor: 'white',
+            toolTipContent: '<b>{label}</b>: {y} <b>({percentage}%)</b>',
+            indexLabel: '{label} ({percentage}%)',
+            dataPoints: dataPoints
+          }]
+        });
+      } else {
+        chart.options.data[0].dataPoints = dataPoints;
+      }
+      chart.render();
+    }
+    function adjust(){
+      if (!chart) return;
+      el.style.height = computeHeight() + 'px';
+      chart.render();
+    }
+    async function fetchFunnel(){
+      try{
+        const res = await fetch('/painel/financas/withdrawals-funnel-data/', { credentials: 'same-origin' });
+        if(!res.ok) throw new Error('Falha ao obter retiradas');
+        const json = await res.json();
+        const labels = json.labels || [];
+        const series = (json.series || []).map(v => Number(v || 0));
+        render(labels, series);
+      }catch(e){ console.error(e); }
+    }
+    fetchFunnel();
+    if (window.ResizeObserver){
+      const ro = new ResizeObserver(function(){ adjust(); });
+      ro.observe(el);
+    } else {
+      window.addEventListener('resize', adjust);
+      window.addEventListener('orientationchange', adjust);
+    }
+  })();
 </script>
 
-<!-- ApexCharts (CDN) and chart rendering -->
-<script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+<!-- ApexCharts chart rendering -->
 <script>
   (function(){
     const chartEl = document.querySelector('#timeline-chart');
@@ -335,6 +453,7 @@
         height: 320,
         stacked: false,
         toolbar: { show: false },
+        background: 'transparent',
         zoom: { enabled: false }
       },
       colors: ['#0090FF', '#00E396'],
@@ -432,6 +551,253 @@
 
     // Initial load
     fetchDataAndUpdate();
+  })();
+
+  (function(){
+    const revEl = document.querySelector('#bsb-chart-1');
+    const monthSel = document.getElementById('revenueMonthSelect');
+    if (!revEl || !monthSel) return;
+
+    const revChart = new ApexCharts(revEl, {
+      chart: { type: 'area', height: 320, stacked: false, toolbar: { show: false }, zoom: { enabled: false }, background: 'transparent' },
+      theme: { mode: 'dark' },
+      grid: { borderColor: 'transparent' },
+      colors: ['var(--bs-primary)'],
+      stroke: { curve: 'smooth', width: 3 },
+      dataLabels: { enabled: false },
+      markers: { size: 0 },
+      fill: { type: 'gradient', gradient: { shadeIntensity: 1, inverseColors: false, opacityFrom: 0.12, opacityTo: 0.0, stops: [0, 90, 100] } },
+      xaxis: { type: 'datetime', labels: { style: { colors: ['#a1aab2'] } } },
+      yaxis: { labels: { formatter: v => `R$ ${Number(v || 0).toFixed(2)}` } },
+      tooltip: { x: { format: 'dd MMM yyyy' }, y: { formatter: function(val){ return `R$ ${Number(val || 0).toFixed(2)}`; } } },
+      legend: { show: false },
+      series: [{ name: 'Receita líquida', data: [] }]
+    });
+    revChart.render();
+
+    function buildMonthOptions(){
+      const now = new Date();
+      const opts = [];
+      for(let i=0;i<3;i++){
+        const d = new Date(now.getFullYear(), now.getMonth()-i, 1);
+        const val = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+        const label = d.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+        opts.push({ val, label });
+      }
+      monthSel.innerHTML = '';
+      opts.forEach(o => { const op = document.createElement('option'); op.value = o.val; op.textContent = o.label; monthSel.appendChild(op); });
+    }
+
+    async function fetchRevenue(){
+      const month = monthSel.value;
+      try{
+        const res = await fetch(`/painel/financas/revenue-data/?month=${encodeURIComponent(month)}`, { credentials: 'same-origin' });
+        if(!res.ok) throw new Error('Falha ao obter receita');
+        const json = await res.json();
+        const series = json.series || [];
+        const s = series.map(it => ({ name: it.name, data: it.data }));
+        revChart.updateSeries(s, true);
+      }catch(e){ console.error(e); }
+    }
+
+    buildMonthOptions();
+    fetchRevenue();
+    monthSel.addEventListener('change', fetchRevenue);
+  })();
+
+  (function(){
+    const el = document.querySelector('#bsb-chart-4');
+    const sel = document.getElementById('servicesMonthSelect');
+    const cmpSwitch = document.getElementById('servicesCompareSwitch');
+    const cmpSel = document.getElementById('servicesMonthCompareSelect');
+    const cmpCol = document.getElementById('servicesCompareCol');
+    const elCmp = document.querySelector('#bsb-chart-4-compare');
+    if (!el || !sel || !cmpSwitch || !cmpSel || !cmpCol || !elCmp) return;
+
+    const donut = new ApexCharts(el, {
+      chart: { type: 'donut', background: 'transparent' },
+      theme: { mode: 'dark', palette: 'palette1' },
+      dataLabels: { enabled: false },
+      legend: { position: 'bottom' },
+      plotOptions: {
+        pie: {
+          donut: {
+            labels: {
+              show: true,
+              name: { fontSize: '22px', fontWeight: 600 },
+              value: { fontSize: '16px', fontWeight: 400, formatter: function(v){ return `${parseInt(v||0)} concl.`; } }
+            }
+          }
+        }
+      },
+      tooltip: { y: { formatter: function(v){ return `${parseInt(v||0)} concl.`; } } },
+      labels: [],
+      series: []
+    });
+    donut.render();
+
+    let donutCmp = null;
+
+    function buildMonthOptions(){
+      const now = new Date();
+      const opts = [];
+      for(let i=0;i<3;i++){
+        const d = new Date(now.getFullYear(), now.getMonth()-i, 1);
+        const val = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+        const label = d.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+        opts.push({ val, label });
+      }
+      sel.innerHTML = '';
+      cmpSel.innerHTML = '';
+      opts.forEach(o => {
+        const op = document.createElement('option'); op.value = o.val; op.textContent = o.label; sel.appendChild(op);
+        const op2 = document.createElement('option'); op2.value = o.val; op2.textContent = o.label; cmpSel.appendChild(op2);
+      });
+    }
+
+    async function fetchBreakdown(){
+      const month = sel.value;
+      try{
+        const res = await fetch(`/painel/financas/services-breakdown-data/?month=${encodeURIComponent(month)}`, { credentials: 'same-origin' });
+        if(!res.ok) throw new Error('Falha ao obter serviços');
+        const json = await res.json();
+        const labels = json.labels || [];
+        const series = json.series || [];
+        donut.updateOptions({ labels }, false, true);
+        donut.updateSeries(series, true);
+      }catch(e){ console.error(e); }
+    }
+
+    async function fetchBreakdownCmp(){
+      const month = cmpSel.value;
+      if (!donutCmp) return;
+      try{
+        const res = await fetch(`/painel/financas/services-breakdown-data/?month=${encodeURIComponent(month)}`, { credentials: 'same-origin' });
+        if(!res.ok) throw new Error('Falha ao obter serviços');
+        const json = await res.json();
+        const labels = json.labels || [];
+        const series = json.series || [];
+        donutCmp.updateOptions({ labels }, false, true);
+        donutCmp.updateSeries(series, true);
+      }catch(e){ console.error(e); }
+    }
+
+    buildMonthOptions();
+    fetchBreakdown();
+    sel.addEventListener('change', fetchBreakdown);
+
+    cmpSwitch.addEventListener('change', function(){
+      const enabled = cmpSwitch.checked;
+      cmpCol.style.display = enabled ? '' : 'none';
+      cmpSel.style.display = enabled ? '' : 'none';
+      if (enabled && !donutCmp){
+        donutCmp = new ApexCharts(elCmp, {
+          chart: { type: 'donut', background: 'transparent' },
+          theme: { mode: 'dark', palette: 'palette1' },
+          dataLabels: { enabled: false },
+          legend: { position: 'bottom' },
+          plotOptions: { pie: { donut: { labels: { show: true, name: { fontSize: '22px', fontWeight: 600 }, value: { fontSize: '16px', fontWeight: 400, formatter: function(v){ return `${parseInt(v||0)} concl.`; } } } } } },
+          tooltip: { y: { formatter: function(v){ return `${parseInt(v||0)} concl.`; } } },
+          labels: [],
+          series: []
+        });
+        donutCmp.render();
+        fetchBreakdownCmp();
+      }
+    });
+
+    cmpSel.addEventListener('change', fetchBreakdownCmp);
+  })();
+
+  (function(){
+    const el = document.querySelector('#bsb-chart-7');
+    const sel = document.getElementById('barberRangeSelect');
+    const listEl = document.getElementById('barberSideList');
+    if (!el || !sel || !listEl) return;
+
+    const chart = new ApexCharts(el, {
+      chart: { type: 'bar', height: 320, background: 'transparent', toolbar: { show: false } },
+      theme: { mode: 'dark' },
+      grid: { borderColor: 'transparent' },
+      plotOptions: { bar: { horizontal: true, borderRadius: 4, barHeight: '60%', distributed: true } },
+      colors: ['#00E396', '#FEB019', '#FF4560', '#775DD0', '#3F51B5', '#546E7A', '#26A69A', '#D10CE8', '#E91E63', '#29B6F6'],
+      dataLabels: { enabled: true, formatter: function(val){ return `${parseInt(val||0)} concl.`; } },
+      xaxis: { categories: [], labels: { style: { colors: ['#a1aab2'] } } },
+      yaxis: { labels: { style: { colors: ['#a1aab2'] } } },
+      tooltip: { y: { formatter: function(val){ return `${parseInt(val||0)} concl.`; } } },
+      legend: { show: false },
+      series: [{ name: 'Concluídos', data: [] }]
+    });
+    chart.render();
+
+    function buildRangeOptions(){
+      const opts = [
+        { val: 'today', label: 'Hoje' },
+        { val: '7', label: 'Últ. 7 dias' },
+        { val: '15', label: 'Últ. 15 dias' },
+        { val: '30', label: 'Últ. 1 mês' },
+        { val: '60', label: 'Últ. 2 meses' },
+      ];
+      sel.innerHTML = '';
+      opts.forEach(o => { const op = document.createElement('option'); op.value = o.val; op.textContent = o.label; sel.appendChild(op); });
+      sel.value = '30';
+    }
+
+    function renderBarberList(barbers, colors){
+      listEl.innerHTML = '';
+      const col = document.createElement('div');
+      col.className = 'd-flex flex-column gap-2';
+      (barbers || []).forEach((b, i) => {
+        const item = document.createElement('div');
+        item.className = 'd-inline-flex align-items-center justify-content-between gap-2';
+        const img = document.createElement('img');
+        img.src = b.avatar_url || '/static/assets/img/icon-logo.png';
+        img.alt = b.name || 'Barbeiro';
+        img.width = 28; img.height = 28; img.style.borderRadius = '50%'; img.style.objectFit = 'cover';
+        const colorDot = document.createElement('span');
+        colorDot.style.display = 'inline-block';
+        colorDot.style.width = '10px';
+        colorDot.style.height = '10px';
+        colorDot.style.borderRadius = '50%';
+        colorDot.style.backgroundColor = (colors && colors[i % colors.length]) || '#0090FF';
+        const name = document.createElement('span');
+        name.textContent = b.name || 'Barbeiro';
+        name.className = 'text-light';
+        const left = document.createElement('div');
+        left.className = 'd-inline-flex align-items-center gap-2';
+        left.appendChild(colorDot);
+        left.appendChild(img);
+        left.appendChild(name);
+        const count = document.createElement('span');
+        count.textContent = `${parseInt(b.count || 0)} concl.`;
+        count.className = 'text-secondary';
+        item.appendChild(left);
+        item.appendChild(count);
+        col.appendChild(item);
+      });
+      listEl.appendChild(col);
+    }
+
+    async function fetchBarberStats(){
+      const range = sel.value;
+      try{
+        const res = await fetch(`/painel/financas/barber-stats-data/?range=${encodeURIComponent(range)}`, { credentials: 'same-origin' });
+        if(!res.ok) throw new Error('Falha ao obter barbeiros');
+        const json = await res.json();
+        const labels = json.labels || [];
+        const series = json.series || [];
+        const barbers = json.barbers || [];
+        const palette = ['#00E396', '#FEB019', '#FF4560', '#775DD0', '#3F51B5', '#546E7A', '#26A69A', '#D10CE8', '#E91E63', '#29B6F6'];
+        const colors = palette.slice(0, Math.max(labels.length, 1));
+        chart.updateOptions({ xaxis: { categories: labels }, colors }, false, true);
+        chart.updateSeries([{ name: 'Concluídos', data: series }], true);
+        renderBarberList(barbers, colors);
+      }catch(e){ console.error(e); }
+    }
+
+    buildRangeOptions();
+    fetchBarberStats();
+    sel.addEventListener('change', fetchBarberStats);
   })();
 </script>
 
