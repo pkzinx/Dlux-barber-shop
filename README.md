@@ -12,95 +12,62 @@
 
 ## Visão Geral
 
-Projeto completo com duas partes:
-- Site em Next.js (marketing, agendamentos e informações da barbearia).
-- Painel Dlux (Django) para operação interna: agenda, finanças, histórico e perfil.
+Projeto composto por site e painel interno. O site apresenta a barbearia e permite iniciar agendamentos. O painel Dlux, feito para uso interno, centraliza a operação: agenda, finanças, histórico e perfil.
 
-## Painel Dlux — Principais Funcionalidades
+## Funcionalidades do Painel
 
 - Agendamentos
-  - Novo agendamento rápido pelo modal “Novo agendamento”.
   - Criação, edição, conclusão e cancelamento de serviços.
-  - Busca por cliente e visualização por status.
-  - Toast de sucesso garantido ao concluir, evitando dupla criação.
+  - Pesquisa por cliente e visualização por status.
+  - Fluxo rápido de agendamento com confirmação clara.
 - Finanças
-  - KPIs diárias e mensais baseadas no fim do serviço (`end_datetime`).
-  - Faturamento por barbeiro e por período, com filtros simples.
-- Histórico (Auditoria)
-  - Registro de ações: criar, atualizar, excluir, login e logout.
+  - Indicadores diários e mensais baseados na conclusão dos serviços.
+  - Faturamento por barbeiro e por períodos, com filtros simples.
+- Histórico
+  - Registro de ações de usuários e eventos relevantes.
 - Perfil
-  - Edição de dados de usuário e alteração de senha.
+  - Edição de dados de usuário e preferências.
 
-Rotas úteis do painel:
-- `/painel/` — dashboard geral
-- `/painel/agendamentos/` — agenda
-- `/painel/financas/` — finanças e KPIs
-- `/painel/historico/` — trilha de auditoria
-- `/painel/perfil/` — perfil do usuário
+## Gráficos e KPIs
+
+- Agendamentos concluídos
+  - Área temporal com intervalos (dia, 7, 15, 30 dias) e comparação opcional.
+- Receita total
+  - Visão consolidada com destaque para valores concluídos.
+- Serviços mais agendados
+  - Comparativo mensal opcional para identificar variações de demanda.
+- Quantidade por barbeiro
+  - Barras distribuídas destacando a produtividade por profissional.
+- Retiradas por motivo
+  - Funil que mostra concentração por categorias de retirada.
+
+Todos os gráficos possuem controles simples e botões de minimizar padronizados para foco no conteúdo.
+
+## Páginas do Painel
+
+- Dashboard geral: visão rápida da operação.
+- Agenda: gerenciamento de agendamentos e bloqueios de horário.
+- Finanças: KPIs e gráficos de receita, serviços e produtividade.
+- Histórico: trilha de auditoria com ações do sistema.
+- Perfil: dados e configurações do usuário.
+
+## Experiência
+
+- Interface escura, moderna e responsiva.
+- Controles intuitivos e consistentes entre cards e gráficos.
+- Feedbacks visuais claros em ações críticas.
 
 ## Tecnologias
 
-- Backend: Django (+ Gunicorn), PostgreSQL
-- Frontend: Next.js, React, Styled Components, Storybook
-- Testes: Jest + React Testing Library
-- Extras: GraphQL no site, Axios, Eslint, Prettier, Husky
+- Backend: Django, PostgreSQL.
+- Frontend: Next.js e React.
+- Gráficos: ApexCharts e CanvasJS.
 
-## Como rodar localmente
+## Notas de versão — v3.1.x
 
-Backend (Django):
-```bash
-cd backend
-python -m pip install -r requirements.txt
-python manage.py runserver 0.0.0.0:8000
-# Painel: http://localhost:8000/painel/
-```
-
-Frontend (Next.js):
-```bash
-npm install
-npm run dev
-# Site: http://localhost:3000/
-```
-
-## Variáveis de Ambiente
-
-Backend (Django):
-
-| Chave | Descrição |
-| --- | --- |
-| `DATABASE_URL` | URL do Postgres (ex.: `postgresql://...@postgres.railway.internal:5432/railway`) |
-| `DJANGO_SECRET_KEY` | Chave secreta do Django |
-| `DEBUG` | `false` em produção |
-| `ALLOWED_HOSTS` | Domínios permitidos do painel (Railway/VPS) |
-| `CSRF_TRUSTED_ORIGINS` | Domínios com `https://` para evitar erro de CSRF |
-| `MEDIA_ROOT` | Caminho para uploads (ex.: `/app/media`) |
-
-Frontend (Next.js):
-
-| Chave | Descrição |
-| --- | --- |
-| `NEXT_PUBLIC_API_URL` | URL pública da API do painel (ex.: `https://api.seudominio.com`) |
-| `GRAPHQL_HOST` | Se usar GraphQL no site |
-| `GRAPHQL_TOKEN` | Token para GraphQL (se aplicável) |
-
-## Deploy resumido na Railway
-
-1. Adicione um serviço Postgres e copie `DATABASE_URL`.
-2. Crie serviço `dlux-api` (root `backend/`), configure:
-   - Build: `pip install -r requirements.txt`
-   - Start: `sh -c "python manage.py migrate && gunicorn dlux_panel.wsgi:application --bind 0.0.0.0:8000"`
-   - Variáveis: `DATABASE_URL`, `DJANGO_SECRET_KEY`, `DEBUG=false`, `ALLOWED_HOSTS`, `CSRF_TRUSTED_ORIGINS`.
-3. Crie serviço `dlux-web` (raiz do projeto), configure:
-   - Build: `npm ci && npm run build`
-   - Start: `npm run start`
-   - Variáveis: `NEXT_PUBLIC_API_URL` apontando para o backend.
-4. Teste os dois endpoints `*.railway.app` e, opcionalmente, adicione domínios próprios.
-
-## Notas de versão — v2.6.x
-
-- 2.6.1: Ajuste do toast de sucesso no agendamento rápido (UI).
-- 2.6.2: Timeout e abort no post de agendamentos para evitar loading infinito.
-- 2.6.3: README atualizado com logo, descrição do painel e funcionalidades.
+- Padronização dos botões de minimizar nos gráficos.
+- Melhorias na página de Finanças e comparações.
+- Limpeza de dados de teste para ambiente controlado.
 
 ## Licença
 
