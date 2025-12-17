@@ -860,6 +860,47 @@ def finances_withdrawals_funnel_data(request: HttpRequest):
     return JsonResponse({'labels': labels, 'series': series})
 
 @login_required
+def finances_no_show_rate_data(request: HttpRequest):
+    user: User = request.user  # type: ignore
+    is_admin = user.role == User.ADMIN
+    special_full_access_usernames = {"kaue", "alafy", "alafi", "alefi"}
+    is_special_finances_view = str(getattr(user, 'username', '')).lower() in special_full_access_usernames
+    # Visão padrão: últimos 30 dias
+    now_local = timezone.localtime()
+    start_local = now_local - timezone.timedelta(days=30)
+    end_local = now_local
+    step = timezone.timedelta(days=1)
+
+    labels = []
+    done_rates = []
+    cancel_rates = []
+
+    cur = start_local
+    while cur < end_local:
+        nxt = cur + step
+        utc_beg = cur.astimezone(datetime.timezone.utc)
+        utc_end = nxt.astimezone(datetime.timezone.utc)
+        # concluir por fim do serviço no dia
+        done_qs = Appointment.objects.filter(status=Appointment.STATUS_DONE, end_datetime__gte=utc_beg, end_datetime__lt=utc_end)
+        # cancelados considerados pelo início dentro do dia
+        cancel_qs = Appointment.objects.filter(status=Appointment.STATUS_CANCELLED, start_datetime__gte=utc_beg, start_datetime__lt=utc_end)
+        total = done_qs.count() + cancel_qs.count()
+        dr = float((done_qs.count() / total) * 100) if total else 0.0
+        cr = float((cancel_qs.count() / total) * 100) if total else 0.0
+        labels.append(timezone.localtime(cur).strftime('%d/%m'))
+        done_rates.append(round(dr, 2))
+        cancel_rates.append(round(cr, 2))
+        cur = nxt
+
+    return JsonResponse({
+        'labels': labels,
+        'series': {
+            'done_rate': done_rates,
+            'cancel_rate': cancel_rates,
+        }
+    })
+
+@login_required
 def finances_barber_stats_data(request: HttpRequest):
     user: User = request.user  # type: ignore
     is_admin = user.role == User.ADMIN
@@ -867,7 +908,20 @@ def finances_barber_stats_data(request: HttpRequest):
     is_special_finances_view = str(getattr(user, 'username', '')).lower() in special_full_access_usernames
     rng = (request.GET.get('range') or '').strip().lower()
     now_local = timezone.localtime()
-    if rng in ('today', 'day'):
+    month_param = (request.GET.get('month') or '').strip()
+    if month_param:
+        try:
+            parts = month_param.split('-')
+            year = int(parts[0]) if len(parts) >= 1 and parts[0] else now_local.year
+            month = int(parts[1]) if len(parts) >= 2 and parts[1] else now_local.month
+            start_local = datetime.datetime(year=year, month=month, day=1, hour=0, minute=0, second=0, microsecond=0, tzinfo=now_local.tzinfo)
+        except Exception:
+            start_local = now_local.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        if start_local.month == 12:
+            end_local = start_local.replace(year=start_local.year + 1, month=1)
+        else:
+            end_local = start_local.replace(month=start_local.month + 1)
+    elif rng in ('today', 'day'):
         start_local = now_local.replace(hour=0, minute=0, second=0, microsecond=0)
         end_local = now_local
     elif rng in ('7', 'week'):
@@ -946,6 +1000,149 @@ def finances_barber_stats_data(request: HttpRequest):
         barbers.append({'id': u.id, 'name': name, 'avatar_url': avatar_url, 'count': c})
 
     return JsonResponse({'labels': labels, 'series': series, 'barbers': barbers})
+
+@login_required
+def finances_clients_top_data(request: HttpRequest):
+    user: User = request.user  # type: ignore
+    is_admin = user.role == User.ADMIN
+    special_full_access_usernames = {"kaue", "alafy", "alafi", "alefi"}
+    is_special_finances_view = str(getattr(user, 'username', '')).lower() in special_full_access_usernames
+    qs = Appointment.objects.all().order_by('start_datetime')
+    if not (is_admin or is_special_finances_view):
+        qs = qs.filter(barber=user)
+    clients = {}
+    for a in qs:
+        phone = ''.join(ch for ch in (a.client_phone or '') if ch.isdigit())
+        if not phone:
+            continue
+        entry = clients.get(phone) or { 'name': a.client_name or '', 'count_done': 0 }
+        if not entry['name']:
+            entry['name'] = a.client_name or entry['name']
+        if a.status == Appointment.STATUS_DONE:
+            entry['count_done'] = int(entry['count_done']) + 1
+        clients[phone] = entry
+    items = [ (v['name'] or 'Cliente', int(v['count_done'] or 0)) for v in clients.values() if (int(v.get('count_done', 0)) > 0) ]
+    items.sort(key=lambda x: x[1], reverse=True)
+    top = items[:20]
+    return JsonResponse({ 'data': top })
+
+@login_required
+def finances_occupancy_buckets_data(request: HttpRequest):
+    user: User = request.user  # type: ignore
+    is_admin = user.role == User.ADMIN
+    special_full_access_usernames = {"kaue", "alafy", "alafi", "alefi"}
+    is_special_finances_view = str(getattr(user, 'username', '')).lower() in special_full_access_usernames
+    now_local = timezone.localtime()
+    start_local = now_local - timezone.timedelta(days=30)
+    utc_beg = start_local.astimezone(datetime.timezone.utc)
+    utc_end = now_local.astimezone(datetime.timezone.utc)
+    appts_filter = { 'status': Appointment.STATUS_DONE, 'start_datetime__gte': utc_beg, 'start_datetime__lt': utc_end }
+    if not (is_admin or is_special_finances_view):
+        appts_filter['barber'] = user
+    appts_filter['service__title__icontains'] = 'corte'
+    qs = Appointment.objects.filter(**appts_filter).select_related('service')
+    buckets = [(8,10),(10,12),(12,14),(14,16),(16,18),(18,20)]
+    counts = { f"{str(a).zfill(2)}–{str(b).zfill(2)}": 0 for a,b in buckets }
+    for a in qs:
+        h = timezone.localtime(a.start_datetime).hour
+        for beg,end in buckets:
+            if h >= beg and h < end:
+                label = f"{str(beg).zfill(2)}–{str(end).zfill(2)}"
+                counts[label] = counts.get(label, 0) + 1
+                break
+    data = [{ 'name': label, 'y': counts[label] } for label in counts.keys()]
+    return JsonResponse({ 'data': data })
+
+@login_required
+def panel_clients(request: HttpRequest):
+    qs = Appointment.objects.all().order_by('start_datetime')
+    clients = {}
+    for a in qs:
+        phone = ''.join(ch for ch in (a.client_phone or '') if ch.isdigit())
+        if not phone:
+            continue
+        entry = clients.get(phone) or {
+            'phone': phone,
+            'name': a.client_name or '',
+            'visits': [],
+            'done': [],
+            'cancel': [],
+            'total_spent': Decimal('0'),
+        }
+        entry['name'] = a.client_name or entry['name']
+        entry['visits'].append(a)
+        if a.status == Appointment.STATUS_DONE:
+            entry['done'].append(a)
+            price = getattr(getattr(a, 'service', None), 'price', Decimal('0')) or Decimal('0')
+            entry['total_spent'] = (entry['total_spent'] + Decimal(str(price)))
+        if a.status == Appointment.STATUS_CANCELLED:
+            entry['cancel'].append(a)
+        clients[phone] = entry
+
+    data = []
+    for phone, entry in clients.items():
+        done_sorted = sorted(entry['done'], key=lambda x: x.end_datetime or x.start_datetime)
+        last_visit = done_sorted[-1].end_datetime if done_sorted else None
+        first_visit = done_sorted[0].end_datetime if done_sorted else None
+        count_done = len(done_sorted)
+        freq_label = ''
+        if count_done >= 3 and first_visit and last_visit:
+            span_days = max(1, int((last_visit - first_visit).total_seconds() // 86400))
+            months = span_days / 30.0
+            if months >= 1:
+                rate = count_done / months
+                freq_label = f"≈ {rate:.1f}x/mês"
+            else:
+                weeks = span_days / 7.0
+                rate = count_done / max(1e-6, weeks)
+                freq_label = f"≈ {rate:.1f}x/semana"
+        data.append({
+            'name': entry['name'],
+            'phone': phone,
+            'last_visit': last_visit,
+            'total_spent': entry['total_spent'],
+            'count_done': count_done,
+            'freq_label': freq_label,
+        })
+
+    export = (request.GET.get('export') or '').strip()
+    if export:
+        response = HttpResponse(content_type='text/csv')
+        if export == 'all':
+            response['Content-Disposition'] = 'attachment; filename="clientes_all.csv"'
+            writer = csv.writer(response)
+            writer.writerow(['Nome', 'Telefone', 'UltimaVisita', 'TotalGasto', 'VisitasConcluidas', 'Frequencia'])
+            for c in data:
+                lv = timezone.localtime(c['last_visit']).strftime('%Y-%m-%d %H:%M') if c['last_visit'] else ''
+                writer.writerow([c['name'], c['phone'], lv, str(c['total_spent']), c['count_done'], c['freq_label']])
+            return response
+        if export == 'name_phone':
+            response['Content-Disposition'] = 'attachment; filename="clientes_nome_telefone.csv"'
+            writer = csv.writer(response)
+            writer.writerow(['Nome', 'Telefone'])
+            for c in data:
+                writer.writerow([c['name'], c['phone']])
+            return response
+        if export == 'phone':
+            response['Content-Disposition'] = 'attachment; filename="clientes_telefone.csv"'
+            writer = csv.writer(response)
+            writer.writerow(['Telefone'])
+            for c in data:
+                writer.writerow([c['phone']])
+            return response
+
+    sort = (request.GET.get('sort') or '').strip()
+    if sort == 'a_z':
+        data.sort(key=lambda c: (c['name'] or '').casefold())
+    elif sort == 'most_visits':
+        data.sort(key=lambda c: c['count_done'], reverse=True)
+    elif sort == 'last_appointment':
+        data.sort(key=lambda c: (c['last_visit'] is not None, c['last_visit']))
+    elif sort == 'total_spent':
+        data.sort(key=lambda c: c['total_spent'], reverse=True)
+    else:
+        data.sort(key=lambda c: (c['last_visit'] is None, c['last_visit']), reverse=True)
+    return render(request, 'panel_clients.html', { 'clients': data, 'sort': sort })
 
 @login_required
 def panel_profile(request: HttpRequest):

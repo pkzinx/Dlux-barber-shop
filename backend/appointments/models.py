@@ -135,13 +135,29 @@ class NotificationSubscription(models.Model):
         return f"Subscrição {self.appointment_id} - {self.token[:12]}..."
 
 
+class ClientToken(models.Model):
+    """Armazena tokens de dispositivos únicos para envio de promoções gerais."""
+    token = models.CharField(max_length=255, unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    last_seen_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Token {self.token[:12]}..."
+
+
 class AppointmentNotification(models.Model):
     """Registro de lembretes enviados para um agendamento (evita duplicidade)."""
     TYPE_GREETING_30 = 'greeting_30'
+    TYPE_ALERT_15 = 'alert_15'
     TYPE_ALERT_10 = 'alert_10'
+    TYPE_ALERT_0 = 'alert_0'
+    TYPE_CONFIRMATION = 'confirmation'
     TYPE_CHOICES = [
         (TYPE_GREETING_30, 'Saudação 30 min'),
+        (TYPE_ALERT_15, 'Alerta 15 min'),
         (TYPE_ALERT_10, 'Alerta 10 min'),
+        (TYPE_ALERT_0, 'Na hora'),
+        (TYPE_CONFIRMATION, 'Confirmação'),
     ]
 
     appointment = models.ForeignKey(Appointment, on_delete=models.CASCADE, related_name='notifications')

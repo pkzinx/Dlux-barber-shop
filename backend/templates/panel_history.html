@@ -2,7 +2,7 @@
 {% block title %}Histórico{% endblock %}
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
-  <h3 class="mb-0">Histórico de ações</h3>
+  <h3 class="mb-0 d-none d-md-block">Histórico de ações</h3>
   <div class="muted">Somente Kaue e Alafy</div>
   </div>
 
@@ -13,9 +13,7 @@
       <thead>
         <tr>
           <th style="width: 160px;">Data/Hora</th>
-          <th style="width: 120px;">Ação</th>
           <th style="width: 140px;">Tipo</th>
-          <th style="width: 80px;">ID</th>
           <th>Barbeiro</th>
           <th>Resumo</th>
         </tr>
@@ -24,7 +22,6 @@
         {% for log in logs_page %}
         <tr>
           <td>{{ log.timestamp|date:'d/m/Y H:i' }}</td>
-          <td>{{ log.get_action_display }}</td>
           <td>
             {% if log.target_type == 'Appointment' %}
               {% if log.payload.status == 'cancelled' %}Cancelamento{% else %}Edição{% endif %}
@@ -38,7 +35,6 @@
               {{ log.target_type }}
             {% endif %}
           </td>
-          <td>{{ log.target_id }}</td>
           <td>
             {% if log.actor %}
               {{ log.actor.display_name|default:log.actor.username }}
@@ -72,7 +68,7 @@
         </tr>
         {% empty %}
         <tr>
-          <td colspan="6" class="text-center muted">Sem logs recentes.</td>
+          <td colspan="4" class="text-center muted">Sem logs recentes.</td>
         </tr>
         {% endfor %}
       </tbody>

@@ -1,8 +1,8 @@
 import Head from 'next/head';
-import { GetStaticProps } from 'next';
+import { GetServerSideProps } from 'next';
 import styled from 'styled-components';
-import Header from '@/components/ui/organisms/Header/Header';
-import Footer from '@/components/ui/organisms/Footer/Footer';
+import { Header } from '@/components/ui/organisms/Header/Header';
+import { Footer } from '@/components/ui/organisms/Footer/Footer';
 import { ServiceBox } from '@/components/ui/molecules/ServiceBox/ServiceBox';
 import { ScheduleModal } from '@/components/ui/molecules/ScheduleModal/ScheduleModal';
 import contributors from '@/components/ui/organisms/SectionContributors/contributors.mock';
@@ -122,17 +122,23 @@ export default function ServicosPage({ services }: ServicePageProps) {
   );
 }
 
-export const getStaticProps: GetStaticProps<ServicePageProps> = async () => {
-  const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+export const getServerSideProps: GetServerSideProps<ServicePageProps> = async ({ res }) => {
+  const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
+  
+  // Set cache control headers for fresher content
+  res.setHeader(
+    'Cache-Control',
+    'public, s-maxage=10, stale-while-revalidate=59'
+  );
+
   try {
-    const res = await fetch(`${apiBase}/api/services/public/`);
-    const data = await res.json();
+    const response = await fetch(`${apiBase}/api/services/public/`);
+    const data = await response.json();
     return {
       props: {
         services: Array.isArray(data) ? data : data?.results || [],
         apiBase,
       },
-      revalidate: 300,
     };
   } catch (err) {
     console.error('Falha ao carregar serviços', err);
@@ -141,7 +147,6 @@ export const getStaticProps: GetStaticProps<ServicePageProps> = async () => {
         services: [],
         apiBase,
       },
-      revalidate: 300,
     };
   }
 };

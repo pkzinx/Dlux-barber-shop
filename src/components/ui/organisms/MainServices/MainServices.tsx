@@ -56,12 +56,7 @@ export const MainServices = ({ items }: MainServicesProps) => {
   const fetchServices = async () => {
     setLoadingServices(true);
     try {
-      // Em desenvolvimento, usar localhost:8000 diretamente
-      const apiBase = typeof window !== 'undefined' 
-        ? (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000')
-        : 'http://localhost:8000';
-      
-      const url = `${apiBase}/api/services/public/`;
+      const url = `/api/services/public`;
       const res = await fetch(url, {
         method: 'GET',
         headers: {

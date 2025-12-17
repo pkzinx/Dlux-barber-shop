@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
 
-const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8000'
+const BACKEND_URL = process.env.BACKEND_URL || 'http://127.0.0.1:8000'
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'GET') {
@@ -18,7 +18,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (typeof serviceId === 'string') params.set('serviceId', serviceId)
     if (typeof durationMinutes === 'string') params.set('durationMinutes', durationMinutes)
 
-    const url = `${BACKEND_URL}/api/appointments/available/?${params.toString()}`
+    const url = `${BACKEND_URL}/api/appointments/available-slots/?${params.toString()}`
     const r = await fetch(url, { headers: { 'Accept': 'application/json' } })
     const data = await r.json()
     return res.status(r.status).json(data)

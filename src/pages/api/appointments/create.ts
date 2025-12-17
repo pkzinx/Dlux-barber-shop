@@ -21,9 +21,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if ((!barberId && !barberName) || !clientName || !clientPhone || (!serviceId && !serviceTitle) || !startDatetime) {
     return res.status(400).json({ detail: 'Missing required fields' })
   }
+  
+  const BACKEND_URL = process.env.BACKEND_URL || 'http://127.0.0.1:8000'
 
   try {
-    const resp = await fetch('http://localhost:8000/api/appointments/public/', {
+    const resp = await fetch(`${BACKEND_URL}/api/appointments/public/`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

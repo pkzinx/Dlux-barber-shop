@@ -37,7 +37,9 @@ def _ensure_firebase():
         return False
 
 
-def send_push(token: str, title: str, body: str, data: dict | None = None) -> bool:
+from typing import Optional, Dict
+
+def send_push(token: str, title: str, body: str, data: Optional[Dict] = None) -> bool:
     """Envia notificação push via FCM. Retorna True se enviado, False caso contrário."""
     if not _ensure_firebase():
         return False

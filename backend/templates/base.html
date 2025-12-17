@@ -12,7 +12,7 @@
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark shadow-sm">
       <div class="container-fluid">
         <a class="navbar-brand d-flex align-items-center" href="/painel/">
-          <span class="brand-dot me-2"></span>
+          <img src="{% static 'assets/img/icon-logo.png' %}" alt="Dlux" class="me-2" style="height:24px;width:auto;max-height:24px;display:inline-block;" />
           <span class="fw-semibold">Dlux Painel</span>
         </a>
         <div class="d-flex align-items-center gap-2">
@@ -73,6 +73,12 @@
                 <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M12 1L3 5v6c0 5 3.8 9.7 9 11 5.2-1.3 9-6 9-11V5l-9-4zM11 6h2v2h-2V6zm0 4h2v6h-2v-6z"></path></svg>
               </span>
               Finanças
+            </a>
+            <a class="list-group-item list-group-item-action px-3 sidebar-link {% if '/painel/clientes' in request.path %}active{% endif %}" href="/painel/clientes/">
+              <span class="me-2" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M16 11c1.7 0 3-1.3 3-3s-1.3-3-3-3-3 1.3-3 3 1.3 3 3 3zm-8 0c1.7 0 3-1.3 3-3S9.7 5 8 5 5 6.3 5 8s1.3 3 3 3zm0 2c-2.7 0-8 1.4-8 4v2h10v-2c0-2.6-5.3-4-8-4zm8 0c-.3 0-.6 0-.9.1 1.5.8 2.9 2.1 2.9 3.9v2h8v-2c0-2.6-5.3-4-8-4z"></path></svg>
+              </span>
+              Clientes
             </a>
             {% if user.is_superuser or user.username|lower == 'kaue' or user.username|lower == 'alafy' %}
             <a class="list-group-item list-group-item-action px-3 sidebar-link {% if '/painel/servicos' in request.path %}active{% endif %}" href="/painel/servicos/">
@@ -421,6 +427,13 @@
             <!-- Money icon -->
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 1L3 5v6c0 5 3.8 9.7 9 11 5.2-1.3 9-6 9-11V5l-9-4zM11 6h2v2h-2V6zm0 4h2v6h-2v-6z"></path></svg>
             <span>Finanças</span>
+          </a>
+        </div>
+        <div class="nav-item text-center {% if '/painel/clientes' in request.path %}active{% endif %}">
+          <a href="/painel/clientes/" class="d-inline-flex flex-column align-items-center">
+            <!-- Users icon -->
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 11c1.7 0 3-1.3 3-3s-1.3-3-3-3-3 1.3-3 3 1.3 3 3 3zm-8 0c1.7 0 3-1.3 3-3S9.7 5 8 5 5 6.3 5 8s1.3 3 3 3zm0 2c-2.7 0-8 1.4-8 4v2h10v-2c0-2.6-5.3-4-8-4zm8 0c-.3 0-.6 0-.9.1 1.5.8 2.9 2.1 2.9 3.9v2h8v-2c0-2.6-5.3-4-8-4z"></path></svg>
+            <span>Clientes</span>
           </a>
         </div>
         {% if user.is_superuser or user.username|lower == 'kaue' or user.username|lower == 'alafy' %}

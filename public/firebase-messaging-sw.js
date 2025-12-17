@@ -36,8 +36,8 @@ try {
     const options = {
       body,
       data: payload.data || {},
-      icon: '/assets/img/icon-logo.png',
-      badge: '/assets/img/icon-logo.png',
+      icon: '/128.jpg',
+      badge: '/128.jpg',
     }
     self.registration.showNotification(title, options)
   })

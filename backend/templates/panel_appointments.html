@@ -3,7 +3,7 @@
 {% block title %}Agendamentos{% endblock %}
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
-  <h3 class="mb-0">Agendamentos</h3>
+  <h3 class="mb-0 d-none d-md-block">Agendamentos</h3>
   <div>
     <a href="#" class="btn btn-sm btn-accent" data-bs-toggle="modal" data-bs-target="#quickScheduleModal">Novo agendamento</a>
     <a href="?export=csv" class="btn btn-sm btn-outline-light ms-2">Exportar CSV</a>
@@ -352,24 +352,25 @@
         });
       },
       events: function(info, successCallback, failureCallback) {
-        // Buscar agendamentos da API (últimos 60 dias + próximos 30)
-        const startDate = new Date(info.start);
-        startDate.setDate(startDate.getDate() - 60);
-        const endDate = new Date(info.end);
-        endDate.setDate(endDate.getDate() + 30);
-
         const params = new URLSearchParams({
-          start: startDate.toISOString().split('T')[0],
-          end: endDate.toISOString().split('T')[0],
+          future: '1',
+          status: 'scheduled',
+          all: '1',
         });
-        // Sem filtro: mostrar todos os barbeiros
 
-        fetch(`/api/appointments/?${params.toString()}`)
-          .then(r => r.json())
-          .then(data => {
-            const events = (Array.isArray(data) ? data : (data.results || [])).map(appt => ({
+        (async function(){
+          try{
+            let url = `/api/appointments/?${params.toString()}`;
+            const items = [];
+            while (url) {
+              const r = await fetch(url, { credentials: 'same-origin' });
+              const j = await r.json();
+              const page = Array.isArray(j) ? j : (j.results || []);
+              for (const appt of page) items.push(appt);
+              url = (j && j.next) ? j.next : '';
+            }
+            const events = items.map(appt => ({
               id: appt.id.toString(),
-              // Improve title for readability: show time + service + client short
               title: (new Date(appt.start_datetime)).toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'}) + ' — ' + (appt.service?.title || 'Serviço') + (appt.client_name ? ` • ${appt.client_name.split(' ')[0]}` : ''),
               start: appt.start_datetime,
               end: appt.end_datetime,
@@ -386,8 +387,10 @@
               }
             }));
             successCallback(events);
-          })
-          .catch(failureCallback);
+          }catch(e){
+            failureCallback(e);
+          }
+        })();
       }
     });
 

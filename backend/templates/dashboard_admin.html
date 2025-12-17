@@ -1,7 +1,9 @@
 {% extends 'base.html' %}
 {% block title %}Painel Administrativo{% endblock %}
 {% block content %}
-<div class="d-flex justify-content-end align-items-center mb-2">
+<div class="d-flex justify-content-end align-items-center mb-2 gap-2 flex-wrap">
+  <a href="#" class="btn btn-sm btn-accent d-inline-flex align-items-center" data-bs-toggle="modal" data-bs-target="#quickScheduleModal">Novo agendamento</a>
+  <a href="#" class="btn btn-sm btn-outline-light d-inline-flex align-items-center" data-bs-toggle="modal" data-bs-target="#newSaleModal">Nova venda</a>
   <button class="btn btn-sm btn-accent d-inline-flex align-items-center" id="kpiToggleAdmin" type="button" data-bs-toggle="collapse" data-bs-target="#kpiCollapseAdmin" aria-expanded="true" aria-controls="kpiCollapseAdmin">
     <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" class="me-1"><path d="M7 10l5 5 5-5z"></path></svg>
     <span class="kpi-toggle-label">Ocultar</span>
@@ -91,16 +93,29 @@
   </div>
   <div class="col-lg-6">
     <div class="card card-panel mb-4">
-      <div class="card-header d-flex justify-content-between align-items-center">
-        <span class="fw-semibold">Agendamentos recentes</span>
-        <div>
-          <!-- Removido Gerenciar serviços -->
-          <a href="#" class="btn btn-sm btn-accent" data-bs-toggle="modal" data-bs-target="#quickScheduleModal">Novo agendamento</a>
-          <a href="#" class="btn btn-sm btn-outline-light ms-2" data-bs-toggle="modal" data-bs-target="#newSaleModal">Nova venda</a>
-        </div>
+      <div class="card-header d-flex justify-content-center align-items-center">
+        <span class="fw-semibold text-center">Agendamentos recentes</span>
       </div>
-      <div class="card-body p-0">
-        <table class="table table-dark table-striped mb-0">
+      <div id="adminApptsBody" class="collapse show card-body p-0">
+        <style>
+          @media (max-width: 576px){
+            #adminApptsTable thead{display:none}
+            #adminApptsTable tbody tr{display:block;margin:10px;border:1px solid #2a2a2d;border-radius:12px;overflow:hidden}
+            #adminApptsTable tbody td{display:flex;justify-content:space-between;gap:10px;padding:10px 12px;border:0;border-top:1px solid #2a2a2d;word-break:break-word}
+            #adminApptsTable tbody td:first-child{border-top:0}
+            #adminApptsTable tbody tr td:nth-child(7){display:none}
+          }
+          .row-status-done{background-color:rgba(23,62,43,0.35);border-color:#226b4a}
+          .row-status-scheduled{background-color:rgba(255,193,7,0.18);border-color:#9d7b00}
+          .row-status-cancelled{background-color:rgba(58,29,29,0.35);border-color:#6b2222}
+          .row-status-unknown{background-color:rgba(60,60,60,0.2)}
+          .cell-status-done{background-color:rgba(23,62,43,0.35)}
+          .cell-status-scheduled{background-color:rgba(255,193,7,0.18)}
+          .cell-status-cancelled{background-color:rgba(58,29,29,0.35)}
+          .cell-status-unknown{background-color:rgba(60,60,60,0.2)}
+          .status-pill{display:inline-block;margin-left:8px;padding:2px 8px;border-radius:999px;font-size:12px;background:rgba(255,255,255,0.06)}
+        </style>
+        <table id="adminApptsTable" class="table table-dark table-striped mb-0">
           <thead>
             <tr>
               <th style="width: 80px;">Hora</th>
@@ -109,13 +124,12 @@
               <th>Telefone</th>
               <th>Serviço</th>
               <th style="width: 140px;">Agendado em</th>
-              <th style="width: 140px;">Status</th>
             </tr>
           </thead>
           <tbody>
             {% for a in appointments_today %}
-            <tr>
-              <td>{{ a.start_datetime|date:'H:i' }}</td>
+            <tr class="{% if a.status == 'done' %}row-status-done{% elif a.status == 'scheduled' %}row-status-scheduled{% elif a.status == 'cancelled' %}row-status-cancelled{% else %}row-status-unknown{% endif %}">
+              <td class="{% if a.status == 'done' %}cell-status-done{% elif a.status == 'scheduled' %}cell-status-scheduled{% elif a.status == 'cancelled' %}cell-status-cancelled{% else %}cell-status-unknown{% endif %}">{{ a.start_datetime|date:'H:i' }} <span class="status-pill">{% if a.status == 'scheduled' %}Em andamento{% elif a.status == 'done' %}Concluído{% elif a.status == 'cancelled' %}Cancelado{% else %}{{ a.status }}{% endif %}</span></td>
               <td>
                 {% if a.barber.avatar %}
                   <img src="{{ a.barber.avatar.url }}" alt="avatar" class="rounded-circle me-2" style="width:24px;height:24px;object-fit:cover;">
@@ -132,7 +146,9 @@
                 {% endif %}
               </td>
               <td>
-                {{ a.service.title }}
+                {% with bname=a.barber.display_name|default:a.barber.username %}
+                  {{ bname }} — {{ a.service.title }}
+                {% endwith %}
                 {% for s in a.sale_set.all %}
                   {% if s.service and s.status == 'paid' %}
                     + {{ s.service.title }}
@@ -140,21 +156,10 @@
                 {% endfor %}
               </td>
               <td>{{ a.created_at|date:'d/m H:i' }}</td>
-              <td>
-                {% if a.status == 'scheduled' %}
-                  <span class="badge rounded-pill text-bg-secondary">Agendado</span>
-                {% elif a.status == 'done' %}
-                  <span class="badge rounded-pill bg-success">Concluído</span>
-                {% elif a.status == 'cancelled' %}
-                  <span class="badge rounded-pill bg-danger">Cancelado</span>
-                {% else %}
-                  <span class="badge rounded-pill badge-accent">{{ a.status }}</span>
-                {% endif %}
-              </td>
             </tr>
             {% empty %}
             <tr>
-              <td colspan="7" class="text-center muted">Sem registros.</td>
+              <td colspan="6" class="text-center muted">Sem registros.</td>
             </tr>
             {% endfor %}
           </tbody>

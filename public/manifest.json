@@ -4,14 +4,14 @@
   "id": "/",
   "icons": [
     {
-      "src": "assets/img/icon-logo.png",
-      "type": "image/png",
-      "sizes": "192x192",
+      "src": "128.jpg",
+      "type": "image/jpeg",
+      "sizes": "128x128",
       "purpose": "any maskable"
     },
     {
-      "src": "assets/img/icon-logo.png",
-      "type": "image/png",
+      "src": "512.jpg",
+      "type": "image/jpeg",
       "sizes": "512x512",
       "purpose": "any maskable"
     }

@@ -1,12 +1,17 @@
 {% extends "base.html" %}
 {% block title %}Serviços | Painel Dlux{% endblock %}
 {% block content %}
+
 <div class="d-flex flex-wrap align-items-center justify-content-between mb-4 gap-2">
   <div>
-    <h2 class="mb-1">Serviços</h2>
+    <h2 class="mb-1 d-none d-md-block">Serviços</h2>
   </div>
-  <div class="text-end"></div>
-  
+  <div class="text-end">
+    <button class="btn btn-primary" type="button" data-bs-toggle="collapse" data-bs-target="#collapseCreate" aria-expanded="false" aria-controls="collapseCreate">
+      <span class="d-none d-sm-inline">Novo Serviço</span>
+      <span class="d-inline d-sm-none">+</span>
+    </button>
+  </div>
 </div>
 
 {% if services|length >= 45 %}
@@ -16,14 +21,36 @@
 </div>
 {% endif %}
 
-{% if messages %}
-  {% for message in messages %}
-    <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
-      {{ message }}
-      <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fechar"></button>
+<!-- Create Service Collapse -->
+<div class="collapse mb-4" id="collapseCreate">
+  <div class="card card-panel border-success">
+    <div class="card-header border-success text-success">
+      <h5 class="mb-0">Adicionar Novo Serviço</h5>
     </div>
-  {% endfor %}
-{% endif %}
+    <div class="card-body">
+      <form onsubmit="saveService(event)">
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label">Nome do Serviço</label>
+            <input type="text" class="form-control panel-input" name="title" placeholder="Ex.: Corte Degradê" required>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Preço (R$)</label>
+            <input type="text" class="form-control panel-input text-end" name="price" placeholder="0,00" inputmode="decimal" required>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Duração (min)</label>
+            <input type="number" class="form-control panel-input" name="duration_minutes" placeholder="30" required>
+          </div>
+          <div class="col-12 d-flex justify-content-end gap-2">
+            <button type="button" class="btn btn-secondary" data-bs-toggle="collapse" data-bs-target="#collapseCreate">Cancelar</button>
+            <button type="submit" class="btn btn-success">Criar Serviço</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
 
 <style>
   .panel-input {
@@ -37,184 +64,149 @@
     background: #111;
     color: #fff;
   }
-  .panel-table {
-    --bs-table-bg: #151516;
-    --bs-table-striped-bg: #1a1a1c;
-    --bs-table-border-color: #2a2a2d;
-    color: #eaeaea;
+  .service-card-header {
+    cursor: pointer;
+    transition: background-color 0.2s;
+  }
+  .service-card-header:hover {
+    background-color: #1a1a1d;
+  }
+  .badge-active {
+    background: rgba(16, 185, 129, 0.15);
+    color: #10b981;
+    border: 1px solid rgba(16, 185, 129, 0.2);
+  }
+  .badge-inactive {
+    background: rgba(239, 68, 68, 0.15);
+    color: #ef4444;
+    border: 1px solid rgba(239, 68, 68, 0.2);
   }
 </style>
 
-<div class="row g-4">
-  <div class="col-12 col-lg-5">
-    <div class="card card-panel shadow-sm h-100">
-      <div class="card-body">
-        <div class="service-card">
-          <button class="service-toggle" type="button" data-bs-toggle="collapse" data-bs-target="#createServiceCollapse" aria-expanded="false" aria-controls="createServiceCollapse">
-            <div class="service-header">
-              <div class="service-title">Adicionar serviço</div>
-              <div class="service-price">Novo</div>
-            </div>
-            <div class="service-meta">
-              <span class="icon-clock" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 1a11 11 0 1 0 11 11A11.013 11.013 0 0 0 12 1Zm1 11h5v2h-7V6h2Z"></path></svg></span>
-              <span class="service-duration">Defina um tempo</span>
-              <span class="service-active off">Inativo/Ativo</span>
-            </div>
-          </button>
-          <div class="collapse" id="createServiceCollapse">
-            <form method="post" class="service-form vstack gap-3" data-services-form>
-              {% csrf_token %}
-              <input type="hidden" name="action" value="create">
-              <div>
-                <label class="form-label">Nome</label>
-                <input type="text" name="title" class="form-control panel-input" placeholder="Ex.: Corte + Barba" required>
-              </div>
-              <div class="row g-3">
-                <div class="col-6">
-                  <label class="form-label">Preço (R$)</label>
-                  <input type="text" name="price" class="form-control panel-input text-end" placeholder="20,00" inputmode="decimal" required>
-                </div>
-                <div class="col-6">
-                  <label class="form-label">Duração (min)</label>
-                  <input type="number" name="duration_minutes" class="form-control panel-input" placeholder="60" required>
-                </div>
-              </div>
-              <div class="d-flex align-items-center justify-content-between">
-                <div class="form-check form-switch">
-                  <input class="form-check-input" type="checkbox" name="active" id="createActive" checked>
-                  <label class="form-check-label" for="createActive">Ativo</label>
-                </div>
-                <div class="d-flex gap-2">
-                  <button type="submit" class="btn btn-primary btn-sm" {% if services|length >= 50 %}disabled{% endif %}>Salvar</button>
-                </div>
-              </div>
-            </form>
-          </div>
-        </div>
+<div class="d-flex flex-column gap-3" id="servicesList">
+  {% for service in services %}
+  <div class="card card-panel shadow-sm border-secondary">
+    <div class="card-header service-card-header d-flex align-items-center justify-content-between p-3" 
+         data-bs-toggle="collapse" data-bs-target="#collapse{{ service.id }}" aria-expanded="false">
+      <div class="d-flex align-items-center gap-3">
+        <h5 class="mb-0 text-white">{{ service.title }}</h5>
+        <span class="badge {% if service.active %}badge-active{% else %}badge-inactive{% endif %} rounded-pill">
+          {% if service.active %}Ativo{% else %}Inativo{% endif %}
+        </span>
+      </div>
+      <div class="text-muted fw-bold">
+        R$ {{ service.price|floatformat:"2" }}
       </div>
     </div>
-  </div>
 
-  <div class="col-12 col-lg-7">
-    <div class="card card-panel shadow-sm">
-      <div class="card-body">
-        <h5 class="card-title mb-3">Lista de serviços</h5>
-        <div class="service-grid" id="serviceGrid">
-          {% for service in services %}
-          <div class="service-card" data-service-id="{{ service.id }}">
-            <button class="service-toggle" type="button" data-bs-toggle="collapse" data-bs-target="#serviceBody{{ service.id }}" aria-expanded="false" aria-controls="serviceBody{{ service.id }}">
-              <div class="service-header">
-                <div class="service-title">{{ service.title }}</div>
-                <div class="service-price">R$ {{ service.price|floatformat:'2' }}</div>
+    <div id="collapse{{ service.id }}" class="collapse">
+      <div class="card-body border-top border-secondary bg-dark">
+        <form onsubmit="saveService(event)" data-id="{{ service.id }}">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">Nome do Serviço</label>
+              <input type="text" class="form-control panel-input" name="title" value="{{ service.title }}" required>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Preço (R$)</label>
+              <input type="text" class="form-control panel-input text-end" name="price" value="{{ service.price|floatformat:'2' }}" required>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Duração (min)</label>
+              <input type="number" class="form-control panel-input" name="duration_minutes" value="{{ service.duration_minutes }}" required>
+            </div>
+            
+            <div class="col-12">
+              <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" name="active" id="active{{ service.id }}" {% if service.active %}checked{% endif %}>
+                <label class="form-check-label" for="active{{ service.id }}">Serviço Ativo (visível no agendamento)</label>
               </div>
-              <div class="service-meta">
-                <span class="icon-clock" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 1a11 11 0 1 0 11 11A11.013 11.013 0 0 0 12 1Zm1 11h5v2h-7V6h2Z"></path></svg></span>
-                <span class="service-duration">{{ service.duration_minutes }} min</span>
-                <span class="service-active {% if service.active %}on{% else %}off{% endif %}">{% if service.active %}Ativo{% else %}Inativo{% endif %}</span>
-              </div>
-            </button>
-            <div class="collapse" id="serviceBody{{ service.id }}">
-              <form class="service-form vstack gap-3" data-service-form>
-                <input type="hidden" name="service_id" value="{{ service.id }}">
-                <div>
-                  <label class="form-label">Nome</label>
-                  <input type="text" class="form-control panel-input" name="title" value="{{ service.title }}" required>
-                </div>
-                <div class="row g-3">
-                  <div class="col-6">
-                    <label class="form-label">Preço (R$)</label>
-                    <input type="text" class="form-control panel-input text-end" name="price" value="{{ service.price|floatformat:'2' }}" inputmode="decimal" required>
-                  </div>
-                  <div class="col-6">
-                    <label class="form-label">Duração (min)</label>
-                    <input type="number" class="form-control panel-input" name="duration_minutes" value="{{ service.duration_minutes }}" required>
-                  </div>
-                </div>
-                <div class="d-flex align-items-center justify-content-between">
-                  <div class="form-check form-switch">
-                    <input class="form-check-input" type="checkbox" name="active" {% if service.active %}checked{% endif %}>
-                    <label class="form-check-label">Ativo</label>
-                  </div>
-                  <div class="d-flex gap-2">
-                    <button type="button" class="btn btn-outline-danger btn-sm" data-service-delete>Remover</button>
-                    <button type="submit" class="btn btn-primary btn-sm">Salvar</button>
-                  </div>
-                </div>
-              </form>
+            </div>
+
+            <div class="col-12 d-flex justify-content-between align-items-center mt-3">
+              <button type="button" class="btn btn-outline-danger btn-sm" onclick="deleteService(this)" data-id="{{ service.id }}">Excluir Serviço</button>
+              <button type="submit" class="btn btn-primary">Salvar Alterações</button>
             </div>
           </div>
-          {% empty %}
-          <div class="text-muted">Nenhum serviço cadastrado</div>
-          {% endfor %}
-        </div>
+        </form>
       </div>
     </div>
   </div>
+  {% empty %}
+  <div class="text-center text-muted py-5">
+    <p>Nenhum serviço cadastrado.</p>
+  </div>
+  {% endfor %}
 </div>
 
-<style>
-  .service-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1rem}
-  .service-card{background:#151516;border:1px solid #2a2a2d;border-radius:12px;overflow:hidden}
-  .service-toggle{display:block;width:100%;text-align:left;background:transparent;border:0;padding:14px}
-  .service-header{display:flex;align-items:center;justify-content:space-between;gap:10px}
-  .service-title{font-weight:600;color:#ffffff}
-  .service-price{color:#c59d5f}
-  .service-meta{display:flex;align-items:center;gap:10px;margin-top:8px;color:#bdbdbd}
-  .icon-clock{display:inline-flex}
-  .service-active.on{color:#10b981}
-  .service-active.off{color:#ef4444}
-  .service-form{background:#0f0f12;border-top:1px solid #2a2a2d;padding:14px}
-</style>
 <script>
-  function fmtBRL(v){try{return new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(parseFloat(String(v).replace(/\./g,'').replace(',','.')))}catch(e){return v}}
   function csrftoken(){var m=document.cookie.match(/csrftoken=([^;]+)/);return m?m[1]:''}
-  function bindCard(card){var form=card.querySelector('form[data-service-form]');if(!form)return;function onSubmit(e){e.preventDefault();var id=form.querySelector('input[name="service_id"]').value;var title=form.querySelector('input[name="title"]').value.trim();var rawPrice=form.querySelector('input[name="price"]').value;var price=parseFloat(String(rawPrice).replace(/\./g,'').replace(',','.'));var duration=parseInt(form.querySelector('input[name="duration_minutes"]').value,10);var active=form.querySelector('input[name="active"]').checked;fetch('/api/services/'+id+'/',{method:'PATCH',headers:{'Content-Type':'application/json','X-CSRFToken':csrftoken()},body:JSON.stringify({title:title,price:price,duration_minutes:duration,active:active}),credentials:'same-origin'}).then(function(r){return r.json().then(function(d){return{ok:r.ok,data:d}})}).then(function(res){if(res.ok){var t=card.querySelector('.service-title');var p=card.querySelector('.service-price');var d=card.querySelector('.service-duration');var a=card.querySelector('.service-active');if(t)t.textContent=res.data.title;if(p)p.textContent=fmtBRL(res.data.price);if(d)d.textContent=(res.data.duration_minutes||0)+' min';if(a){a.classList.toggle('on',!!res.data.active);a.classList.toggle('off',!res.data.active);a.textContent=res.data.active?'Ativo':'Inativo'}}})}
-    function onDelete(){var id=form.querySelector('input[name="service_id"]').value;fetch('/api/services/'+id+'/',{method:'DELETE',headers:{'X-CSRFToken':csrftoken()},credentials:'same-origin'}).then(function(r){if(r.ok){card.remove()}})}
-    form.addEventListener('submit',onSubmit);var del=form.querySelector('[data-service-delete]');if(del)del.addEventListener('click',onDelete)
+
+  function saveService(event) {
+    event.preventDefault();
+    const form = event.target;
+    const id = form.dataset.id;
+    const isCreate = !id;
+    
+    const title = form.querySelector('[name="title"]').value;
+    const priceStr = form.querySelector('[name="price"]').value;
+    const duration = form.querySelector('[name="duration_minutes"]').value;
+    // For create, active might not exist in form if I didn't add it, but I should.
+    // In create form above, I didn't add active checkbox. Let's assume active=true for new.
+    // Or add it. I'll stick to default true for new.
+    let active = true;
+    const activeInput = form.querySelector('[name="active"]');
+    if (activeInput) active = activeInput.checked;
+
+    const price = parseFloat(String(priceStr).replace(/\./g,'').replace(',','.'));
+    
+    const payload = {
+      title: title.trim(),
+      price: price,
+      duration_minutes: parseInt(duration, 10),
+      active: active
+    };
+
+    const url = isCreate ? '/api/services/' : '/api/services/' + id + '/';
+    const method = isCreate ? 'POST' : 'PATCH';
+
+    fetch(url, {
+      method: method,
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': csrftoken()
+      },
+      body: JSON.stringify(payload)
+    })
+    .then(r => r.json().then(d => ({ ok: r.ok, data: d })))
+    .then(res => {
+      if (res.ok) {
+        window.location.reload();
+      } else {
+        alert('Erro ao salvar: ' + JSON.stringify(res.data));
+      }
+    })
+    .catch(err => {
+      alert('Erro de conexão.');
+      console.error(err);
+    });
   }
-  (function bindCreate(){var form=document.querySelector('form[data-services-form]');if(!form)return;form.addEventListener('submit',function(e){e.preventDefault();var fd=new FormData(form);var payload={title:(fd.get('title')||'').toString().trim(),price:parseFloat(String(fd.get('price')||'').replace(/\./g,'').replace(',','.')),duration_minutes:parseInt(String(fd.get('duration_minutes')||'0'),10),active:fd.get('active')==='on'};fetch('/api/services/',{method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':csrftoken()},body:JSON.stringify(payload),credentials:'same-origin'}).then(function(r){return r.json().then(function(d){return{ok:r.ok,data:d}})}).then(function(res){if(res.ok&&res.data&&res.data.id){var grid=document.getElementById('serviceGrid');if(grid){var id=res.data.id;var card=document.createElement('div');card.className='service-card';card.setAttribute('data-service-id',String(id));card.innerHTML='\
-            <button class="service-toggle" type="button" data-bs-toggle="collapse" data-bs-target="#serviceBody'+id+'" aria-expanded="false" aria-controls="serviceBody'+id+'">\
-              <div class="service-header">\
-                <div class="service-title">'+res.data.title+'</div>\
-                <div class="service-price">'+fmtBRL(res.data.price)+'</div>\
-              </div>\
-              <div class="service-meta">\
-                <span class="icon-clock" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 1a11 11 0 1 0 11 11A11.013 11.013 0 0 0 12 1Zm1 11h5v2h-7V6h2Z"></path></svg></span>\
-                <span class="service-duration">'+(res.data.duration_minutes||0)+' min</span>\
-                <span class="service-active '+(res.data.active?'on':'off')+'">'+(res.data.active?'Ativo':'Inativo')+'</span>\
-              </div>\
-            </button>\
-            <div class="collapse" id="serviceBody'+id+'">\
-              <form class="service-form vstack gap-3" data-service-form>\
-                <input type="hidden" name="service_id" value="'+id+'">\
-                <div>\
-                  <label class="form-label">Nome</label>\
-                  <input type="text" class="form-control panel-input" name="title" value="'+res.data.title+'" required>\
-                </div>\
-                <div class="row g-3">\
-                  <div class="col-6">\
-                    <label class="form-label">Preço (R$)</label>\
-                    <input type="text" class="form-control panel-input text-end" name="price" value="'+String(res.data.price)+'" inputmode="decimal" required>\
-                  </div>\
-                  <div class="col-6">\
-                    <label class="form-label">Duração (min)</label>\
-                    <input type="number" class="form-control panel-input" name="duration_minutes" value="'+(res.data.duration_minutes||0)+'" required>\
-                  </div>\
-                </div>\
-                <div class="d-flex align-items-center justify-content-between">\
-                  <div class="form-check form-switch">\
-                    <input class="form-check-input" type="checkbox" name="active" '+(res.data.active?'checked':'')+'>\
-                    <label class="form-check-label">Ativo</label>\
-                  </div>\
-                  <div class="d-flex gap-2">\
-                    <button type="button" class="btn btn-outline-danger btn-sm" data-service-delete>Remover</button>\
-                    <button type="submit" class="btn btn-primary btn-sm">Salvar</button>\
-                  </div>\
-                </div>\
-              </form>\
-            </div>';grid.prepend(card);bindCard(card)}form.reset()}})});
-  })();
-  (function enforceLimit(){var grid=document.getElementById('serviceGrid');var form=document.querySelector('form[data-services-form]');if(!grid||!form)return;form.addEventListener('submit',function(e){var count=document.querySelectorAll('.service-card[data-service-id]').length;if(count>=50){e.preventDefault();alert('Limite de 50 serviços atingido.');}})})();
-  (function init(){var cards=document.querySelectorAll('.service-card');cards.forEach(bindCard)})();
+
+  function deleteService(btn) {
+    const id = btn.dataset.id;
+    if (!confirm('Tem certeza que deseja excluir este serviço?')) return;
+    fetch('/api/services/' + id + '/', {
+      method: 'DELETE',
+      headers: { 'X-CSRFToken': csrftoken() }
+    })
+    .then(r => {
+      if (r.ok) {
+        window.location.reload();
+      } else {
+        alert('Erro ao excluir.');
+      }
+    })
+    .catch(err => console.error(err));
+  }
 </script>
 {% endblock %}

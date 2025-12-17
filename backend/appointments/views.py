@@ -5,7 +5,7 @@ from rest_framework.views import APIView
 from rest_framework import status
 from .models import Appointment
 from .models import TimeBlock
-from .models import NotificationSubscription, AppointmentNotification
+from .models import NotificationSubscription, AppointmentNotification, ClientToken
 from services.models import Service
 from django.db.models import Q
 from .serializers import AppointmentSerializer
@@ -45,13 +45,44 @@ class AppointmentViewSet(viewsets.ModelViewSet):
 
         user = self.request.user
         barber_id = self.request.query_params.get('barberId')
-        if user.role == User.BARBER:
-            qs = qs.filter(barber=user)
-        elif barber_id:
-            qs = qs.filter(barber_id=barber_id)
+        all_param = str(self.request.query_params.get('all') or '').lower() in ('1', 'true', 'on', 'yes')
+        if not all_param:
+            if user.role == User.BARBER:
+                qs = qs.filter(barber=user)
+            elif barber_id:
+                qs = qs.filter(barber_id=barber_id)
         date = self.request.query_params.get('date')
         if date:
             qs = qs.filter(start_datetime__date=date)
+        status_param = self.request.query_params.get('status')
+        if status_param:
+            qs = qs.filter(status=status_param)
+        start_param = self.request.query_params.get('start')
+        end_param = self.request.query_params.get('end')
+        tz = timezone.get_current_timezone()
+        if start_param:
+            try:
+                d = datetime.date.fromisoformat(start_param)
+                start_local = datetime.datetime(d.year, d.month, d.day, 0, 0, 0)
+                start_local = timezone.make_aware(start_local, tz)
+                start_utc = start_local.astimezone(datetime.timezone.utc)
+                qs = qs.filter(start_datetime__gte=start_utc)
+            except ValueError:
+                pass
+        if end_param:
+            try:
+                d = datetime.date.fromisoformat(end_param)
+                # usar limite exclusivo: próximo dia às 00:00
+                next_day = d + datetime.timedelta(days=1)
+                end_local = datetime.datetime(next_day.year, next_day.month, next_day.day, 0, 0, 0)
+                end_local = timezone.make_aware(end_local, tz)
+                end_utc = end_local.astimezone(datetime.timezone.utc)
+                qs = qs.filter(start_datetime__lt=end_utc)
+            except ValueError:
+                pass
+        future_param = self.request.query_params.get('future')
+        if str(future_param).lower() in ('1', 'true', 'on', 'yes'):
+            qs = qs.filter(end_datetime__gte=timezone.now())
         return qs
 
     def perform_create(self, serializer):
@@ -96,6 +127,10 @@ class AppointmentViewSet(viewsets.ModelViewSet):
         token = request.data.get('token') or request.data.get('fcmToken')
         if not token or not isinstance(token, str):
             return Response({'detail': 'Token FCM é obrigatório.'}, status=400)
+        
+        # Salvar token globalmente para promoções
+        ClientToken.objects.update_or_create(token=token, defaults={'last_seen_at': timezone.now()})
+
         try:
             sub, created = NotificationSubscription.objects.get_or_create(appointment=appt, token=token)
             return Response({'ok': True, 'created': created})
@@ -144,7 +179,7 @@ class AppointmentViewSet(viewsets.ModelViewSet):
         ]
         return Response({'barbers': data})
 
-    @action(detail=False, methods=['get'], url_path='available', permission_classes=[permissions.AllowAny])
+    @action(detail=False, methods=['get'], url_path='available-slots', permission_classes=[permissions.AllowAny])
     def available_slots(self, request):
         """Retorna horários disponíveis (HH:MM) para um barbeiro em uma data.
         Considera a duração do serviço para que o próximo horário só apareça após o término.
@@ -212,10 +247,9 @@ class AppointmentViewSet(viewsets.ModelViewSet):
         # Buscar agendamentos existentes do barbeiro que sobrepõem a janela (excluir apenas cancelados)
         existing = Appointment.objects.filter(
             barber_id=barber_id,
-            status__in=[Appointment.STATUS_SCHEDULED, Appointment.STATUS_DONE],
             start_datetime__lt=window_end,
             end_datetime__gt=window_start,
-        ).values('start_datetime', 'end_datetime')
+        ).exclude(status=Appointment.STATUS_CANCELLED).values('start_datetime', 'end_datetime')
 
         # Buscar bloqueios de horário do barbeiro para o dia
         blocks = TimeBlock.objects.filter(barber_id=barber_id, date=day)

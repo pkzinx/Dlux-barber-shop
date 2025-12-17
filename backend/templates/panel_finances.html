@@ -2,7 +2,7 @@
 {% block title %}Finanças{% endblock %}
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
-  <h3 class="mb-0">Finanças</h3>
+  <h3 class="mb-0 d-none d-md-block">Finanças</h3>
   <div>
     <a id="exportCsvBtn" href="#" class="btn btn-sm btn-accent d-inline-flex align-items-center">
       <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-download me-2" viewBox="0 0 16 16">
@@ -287,7 +287,7 @@
           </div>
           <div class="d-flex align-items-center gap-2">
             <select id="barberRangeSelect" class="form-select text-secondary border-light-subtle"></select>
-            <button class="collapse-toggle ms-2" data-bs-toggle="collapse" data-bs-target="#barberChartBody" aria-expanded="true" aria-controls="barberChartBody" title="Minimizar/Expandir"><span class="icon">▾</span></button>
+            <button class="collapse-toggle ms-2" data-bs-toggle="collapse" data-bs-target="#barberChartBody" aria-expanded="true" aria-controls="#barberChartBody" title="Minimizar/Expandir"><span class="icon">▾</span></button>
           </div>
         </div>
         <div id="barberChartBody" class="collapse show">
@@ -325,6 +325,63 @@
     </div>
   </div>
 </div>
+<div class="row g-3">
+  <div class="col-12">
+    <div class="card widget-card bg-dark text-light border-secondary shadow-sm mb-4">
+      <div class="card-body p-4">
+        <div class="d-block d-sm-flex align-items-center justify-content-between mb-3">
+          <div class="mb-3 mb-sm-0">
+            <h5 class="card-title widget-card-title"></h5>
+          </div>
+          <div>
+            <button class="collapse-toggle ms-2" data-bs-toggle="collapse" data-bs-target="#noShowChartBody" aria-expanded="true" aria-controls="noShowChartBody" title="Minimizar/Expandir"><span class="icon">▾</span></button>
+          </div>
+        </div>
+        <div id="noShowChartBody" class="collapse show">
+          <div id="noShowChart"></div>
+        </div>
+      </div>
+  </div>
+</div>
+</div>
+<div class="row g-3">
+  <div class="col-12">
+    <div class="card widget-card bg-dark text-light border-secondary shadow-sm mb-4">
+      <div class="card-body p-4">
+        <div class="d-block d-sm-flex align-items-center justify-content-between mb-3">
+          <div class="mb-3 mb-sm-0">
+            <h5 class="card-title widget-card-title"></h5>
+          </div>
+          <div>
+            <button class="collapse-toggle ms-2" data-bs-toggle="collapse" data-bs-target="#clientsTopBody" aria-expanded="true" aria-controls="clientsTopBody" title="Minimizar/Expandir"><span class="icon">▾</span></button>
+          </div>
+        </div>
+        <div id="clientsTopBody" class="collapse show">
+          <div id="clientsTopChart"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="row g-3">
+  <div class="col-12">
+    <div class="card widget-card bg-dark text-light border-secondary shadow-sm mb-4">
+      <div class="card-body p-4">
+        <div class="d-block d-sm-flex align-items-center justify-content-between mb-3">
+          <div class="mb-3 mb-sm-0">
+            <h5 class="card-title widget-card-title"></h5>
+          </div>
+          <div>
+            <button class="collapse-toggle ms-2" data-bs-toggle="collapse" data-bs-target="#occupancyBody" aria-expanded="true" aria-controls="occupancyBody" title="Minimizar/Expandir"><span class="icon">▾</span></button>
+          </div>
+        </div>
+        <div id="occupancyBody" class="collapse show">
+          <div id="occupancyChart"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 {% endif %}
 
 <style>
@@ -336,6 +393,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
 <script src="https://cdn.canvasjs.com/canvasjs.min.js"></script>
+<script src="https://code.highcharts.com/highcharts.js"></script>
 <script>
   // Toggle collapse icon direction for collapse-toggle buttons
   (function(){
@@ -438,6 +496,105 @@
       window.addEventListener('resize', adjust);
       window.addEventListener('orientationchange', adjust);
     }
+  })();
+
+  // Highcharts: Taxa de No-Show e Cancelamento
+  (function(){
+    const el = document.getElementById('noShowChart');
+    const body = document.getElementById('noShowChartBody');
+    if(!el || !window.Highcharts) return;
+    function render(labels, doneRate, cancelRate){
+      window.Highcharts.chart('noShowChart', {
+        chart: { backgroundColor: 'transparent', height: 320 },
+        title: { text: 'Taxa de cancelamento e concluidos', align: 'left', style: { color: '#ffffff' } },
+        subtitle: { text: '', align: 'left' },
+        xAxis: { categories: labels, labels: { style: { color: '#bbbbbb' } } },
+        yAxis: { title: { text: 'Percentual (%)', style: { color: '#bbbbbb' } }, max: 100 },
+        legend: { layout: 'horizontal', align: 'center', verticalAlign: 'bottom', itemStyle: { color: '#dddddd' } },
+        plotOptions: { series: { marker: { enabled: false } } },
+        series: [
+          { name: 'Cancelados/Não compareceu', data: cancelRate, color: '#FF4560' },
+          { name: 'Concluídos', data: doneRate, color: '#00E396' }
+        ],
+        credits: { enabled: false }
+      });
+    }
+    async function fetchData(){
+      try{
+        const r = await fetch('/painel/financas/no-show-rate/', { credentials: 'same-origin' });
+        const j = await r.json();
+        const labels = j.labels || [];
+        const doneRate = (j.series && j.series.done_rate) || [];
+        const cancelRate = (j.series && j.series.cancel_rate) || [];
+        render(labels, doneRate, cancelRate);
+      }catch(e){ console.error(e); }
+    }
+    fetchData();
+    body && body.addEventListener('shown.bs.collapse', fetchData);
+  })();
+
+  // Highcharts: Clientes mais frequentes
+  (function(){
+    const el = document.getElementById('clientsTopChart');
+    const body = document.getElementById('clientsTopBody');
+    if(!el || !window.Highcharts) return;
+    function render(data){
+      const points = Array.isArray(data) ? data.map(function(it){ return { name: it[0], y: Number(it[1] || 0) }; }) : [];
+      window.Highcharts.chart('clientsTopChart', {
+        chart: { type: 'column', backgroundColor: 'transparent', height: 320 },
+        title: { text: 'Clientes mais frequentes', align: 'left', style: { color: '#ffffff' } },
+        subtitle: { text: '', align: 'left' },
+        xAxis: { type: 'category', labels: { autoRotation: [-45, -90], style: { fontSize: '13px', fontFamily: 'Verdana, sans-serif', color: '#bbbbbb' } } },
+        yAxis: { min: 0, title: { text: 'Visitas concluídas', style: { color: '#bbbbbb' } } },
+        legend: { enabled: false },
+        tooltip: { pointFormat: 'Visitas concluídas: <b>{point.y}</b>' },
+        series: [{
+          name: 'Visitas',
+          data: points,
+          colorByPoint: true,
+          dataLabels: { enabled: true, rotation: -90, color: '#FFFFFF', inside: true, verticalAlign: 'top', format: '{point.y}', y: 10, style: { fontSize: '13px', fontFamily: 'Verdana, sans-serif' } }
+        }],
+        credits: { enabled: false }
+      });
+    }
+    async function fetchData(){
+      try{
+        const r = await fetch('/painel/financas/clients-top-data/', { credentials: 'same-origin' });
+        const j = await r.json();
+        const data = Array.isArray(j.data) ? j.data : [];
+        render(data);
+      }catch(e){ console.error(e); }
+    }
+    fetchData();
+    body && body.addEventListener('shown.bs.collapse', fetchData);
+  })();
+
+  (function(){
+    const el = document.getElementById('occupancyChart');
+    const body = document.getElementById('occupancyBody');
+    if(!el || !window.Highcharts) return;
+    function render(data){
+      const points = Array.isArray(data) ? data.map(function(it){ return { name: it.name || '', y: Number(it.y || 0) }; }) : [];
+      window.Highcharts.chart('occupancyChart', {
+        chart: { type: 'pie', backgroundColor: 'transparent', height: 320 },
+        title: { text: 'Horários de Baixa Ocupação vs Alta Ocupação', align: 'left', style: { color: '#ffffff' } },
+        tooltip: { pointFormat: '{series.name}: <b>{point.percentage:.1f}%</b>' },
+        accessibility: { point: { valueSuffix: '%' } },
+        plotOptions: { pie: { allowPointSelect: true, cursor: 'pointer', dataLabels: { enabled: false }, showInLegend: true } },
+        series: [{ name: 'Períodos', colorByPoint: true, data: points }],
+        credits: { enabled: false }
+      });
+    }
+    async function fetchData(){
+      try{
+        const r = await fetch('/painel/financas/occupancy-buckets/', { credentials: 'same-origin' });
+        const j = await r.json();
+        const data = Array.isArray(j.data) ? j.data : [];
+        render(data);
+      }catch(e){ }
+    }
+    fetchData();
+    body && body.addEventListener('shown.bs.collapse', fetchData);
   })();
 </script>
 
@@ -731,16 +888,18 @@
     chart.render();
 
     function buildRangeOptions(){
+      const now = new Date();
+      const currentMonthVal = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
       const opts = [
-        { val: 'today', label: 'Hoje' },
-        { val: '7', label: 'Últ. 7 dias' },
-        { val: '15', label: 'Últ. 15 dias' },
-        { val: '30', label: 'Últ. 1 mês' },
-        { val: '60', label: 'Últ. 2 meses' },
+        { val: `month:${currentMonthVal}`, label: 'Mês atual' },
+        { val: 'range:30', label: 'Últ. 1 mês' },
+        { val: 'range:15', label: 'Últ. 15 dias' },
+        { val: 'range:7', label: 'Últ. 7 dias' },
+        { val: 'range:today', label: 'Hoje' },
       ];
       sel.innerHTML = '';
       opts.forEach(o => { const op = document.createElement('option'); op.value = o.val; op.textContent = o.label; sel.appendChild(op); });
-      sel.value = '30';
+      sel.value = opts[0].val;
     }
 
     function renderBarberList(barbers, colors){
@@ -779,9 +938,19 @@
     }
 
     async function fetchBarberStats(){
-      const range = sel.value;
+      const selected = sel.value || '';
+      let range = '';
+      let month = '';
+      if (selected.startsWith('month:')) {
+        month = selected.split(':')[1] || '';
+      } else if (selected.startsWith('range:')) {
+        range = selected.split(':')[1] || '';
+      }
       try{
-        const res = await fetch(`/painel/financas/barber-stats-data/?range=${encodeURIComponent(range)}`, { credentials: 'same-origin' });
+        const qs = new URLSearchParams();
+        if (range) qs.set('range', range);
+        if (month) qs.set('month', month);
+        const res = await fetch(`/painel/financas/barber-stats-data/?${qs.toString()}`, { credentials: 'same-origin' });
         if(!res.ok) throw new Error('Falha ao obter barbeiros');
         const json = await res.json();
         const labels = json.labels || [];

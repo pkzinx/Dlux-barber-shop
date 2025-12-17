@@ -49,12 +49,12 @@ export default class MyDocument extends Document {
           <meta name="apple-mobile-web-app-title" content="Dlux Barbearia" />
           <link
             rel="icon"
-            href="/assets/img/icon-logo.png"
-            type="image/png"
+            href="/128.jpg"
+            type="image/jpeg"
           />
           <link
             rel="apple-touch-icon"
-            href="/assets/img/icon-logo.png"
+            href="/512.jpg"
           />
           <link
             rel="stylesheet"
