@@ -2,7 +2,7 @@ from django.shortcuts import render, redirect
 import os
 from decimal import Decimal, ROUND_HALF_UP
 from django.contrib.auth.decorators import login_required
-from django.http import HttpRequest, HttpResponse
+from django.http import HttpRequest, HttpResponse, HttpResponseForbidden
 import csv
 from .models import User
 from django.utils import timezone
@@ -1107,6 +1107,12 @@ def panel_clients(request: HttpRequest):
 
     export = (request.GET.get('export') or '').strip()
     if export:
+        user = request.user
+        is_admin = user.role == User.ADMIN
+        special = user.username.lower() in ['kaue', 'alafy']
+        if not (is_admin or special):
+            return HttpResponseForbidden("Sem permissão para exportar.")
+
         response = HttpResponse(content_type='text/csv')
         if export == 'all':
             response['Content-Disposition'] = 'attachment; filename="clientes_all.csv"'

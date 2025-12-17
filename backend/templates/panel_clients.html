@@ -4,6 +4,7 @@
 <div class="d-flex justify-content-between align-items-center mb-3">
   <h3 class="mb-0 d-none d-md-block">Clientes</h3>
   <div class="d-flex align-items-center gap-2 flex-wrap">
+    {% if user.role == 'admin' or user.username|lower == 'kaue' or user.username|lower == 'alafy' %}
     <div class="btn-group">
       <a href="?export=all" class="btn btn-sm btn-accent">Baixar CSV (Tudo)</a>
       <a href="?export=name_phone" class="btn btn-sm btn-outline-light">Nome + Telefone</a>
@@ -18,6 +19,7 @@
         <option value="total_spent" {% if sort == 'total_spent' %}selected{% endif %}>Total gasto</option>
       </select>
     </div>
+    {% endif %}
   </div>
   </div>
 

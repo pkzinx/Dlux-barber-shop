@@ -149,6 +149,25 @@
     </div>
   </div>
 </div>
+<div class="row g-3">
+  <div class="col-12">
+    <div class="card widget-card bg-dark text-light border-secondary shadow-sm mb-4">
+      <div class="card-body p-4">
+        <div class="d-block d-sm-flex align-items-center justify-content-between mb-3">
+          <div class="mb-3 mb-sm-0">
+            <h5 class="card-title widget-card-title"></h5>
+          </div>
+          <div>
+            <button class="collapse-toggle ms-2" data-bs-toggle="collapse" data-bs-target="#occupancyBody" aria-expanded="true" aria-controls="occupancyBody" title="Minimizar/Expandir"><span class="icon">▾</span></button>
+          </div>
+        </div>
+        <div id="occupancyBody" class="collapse show">
+          <div id="occupancyChart"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 {% endif %}
 
 <div class="row g-3">
@@ -344,6 +363,8 @@
   </div>
 </div>
 </div>
+{% endif %}
+
 <div class="row g-3">
   <div class="col-12">
     <div class="card widget-card bg-dark text-light border-secondary shadow-sm mb-4">
@@ -363,26 +384,6 @@
     </div>
   </div>
 </div>
-<div class="row g-3">
-  <div class="col-12">
-    <div class="card widget-card bg-dark text-light border-secondary shadow-sm mb-4">
-      <div class="card-body p-4">
-        <div class="d-block d-sm-flex align-items-center justify-content-between mb-3">
-          <div class="mb-3 mb-sm-0">
-            <h5 class="card-title widget-card-title"></h5>
-          </div>
-          <div>
-            <button class="collapse-toggle ms-2" data-bs-toggle="collapse" data-bs-target="#occupancyBody" aria-expanded="true" aria-controls="occupancyBody" title="Minimizar/Expandir"><span class="icon">▾</span></button>
-          </div>
-        </div>
-        <div id="occupancyBody" class="collapse show">
-          <div id="occupancyChart"></div>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-{% endif %}
 
 <style>
 #bsb-chart-funnel .canvasjs-chart-credit{display:none !important}
