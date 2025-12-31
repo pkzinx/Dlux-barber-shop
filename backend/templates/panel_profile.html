@@ -12,15 +12,15 @@
       {% else %}
         {% with name=user.display_name|default:user.username %}
           {% if name|lower == 'kaue' %}
-            <img class="avatar-circle rounded-circle" src="{% static 'assets/img/kaue.jpg' %}" alt="Kaue" />
+            <img class="avatar-circle rounded-circle" src="/static/assets/img/kaue.jpg" alt="Kaue" />
           {% elif name|lower == 'kevin' %}
-            <img class="avatar-circle rounded-circle" src="{% static 'assets/img/kevin.JPEG' %}" alt="Kevin" />
+            <img class="avatar-circle rounded-circle" src="/static/assets/img/kevin.JPEG" alt="Kevin" />
           {% elif name|lower == 'emerson' %}
-            <img class="avatar-circle rounded-circle" src="{% static 'assets/img/emerson.JPG' %}" alt="Emerson" />
+            <img class="avatar-circle rounded-circle" src="/static/assets/img/emerson.JPG" alt="Emerson" />
           {% elif name|lower == 'rikelv' %}
-            <img class="avatar-circle rounded-circle" src="{% static 'assets/img/rikelv.JPEG' %}" alt="Rikelv" />
+            <img class="avatar-circle rounded-circle" src="/static/assets/img/rikelv.JPEG" alt="Rikelv" />
           {% elif name|lower == 'alefi' or name|lower == 'alafy' %}
-            <img class="avatar-circle rounded-circle" src="{% static 'assets/img/alafy.JPEG' %}" alt="Alafy" />
+            <img class="avatar-circle rounded-circle" src="/static/assets/img/alafy.JPEG" alt="Alafy" />
           {% else %}
             <div class="avatar-circle"></div>
           {% endif %}

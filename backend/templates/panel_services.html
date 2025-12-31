@@ -81,6 +81,11 @@
     color: #ef4444;
     border: 1px solid rgba(239, 68, 68, 0.2);
   }
+  .sortable-ghost {
+    opacity: 0.5;
+    background: #2c2c30;
+    border: 1px dashed #c59d5f;
+  }
 </style>
 
 <div class="d-flex flex-column gap-3" id="servicesList">
@@ -89,6 +94,9 @@
     <div class="card-header service-card-header d-flex align-items-center justify-content-between p-3" 
          data-bs-toggle="collapse" data-bs-target="#collapse{{ service.id }}" aria-expanded="false">
       <div class="d-flex align-items-center gap-3">
+        <span class="drag-handle text-secondary pe-2" style="cursor: grab; font-size: 1.2rem;" aria-label="Arrastar para reordenar">
+          <i class="bi bi-grip-vertical"></i>
+        </span>
         <h5 class="mb-0 text-white">{{ service.title }}</h5>
         <span class="badge {% if service.active %}badge-active{% else %}badge-inactive{% endif %} rounded-pill">
           {% if service.active %}Ativo{% else %}Inativo{% endif %}
@@ -139,27 +147,97 @@
   {% endfor %}
 </div>
 
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteConfirmModal" tabindex="-1" aria-labelledby="deleteConfirmModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content bg-dark text-white">
+      <div class="modal-header border-secondary">
+        <h5 class="modal-title" id="deleteConfirmModalLabel">Confirmar Exclusão</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        Tem certeza que deseja excluir o serviço "<strong id="serviceNameToDelete"></strong>"? Esta ação não pode ser desfeita.
+      </div>
+      <div class="modal-footer border-secondary">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-danger" id="confirmDeleteBtn">Excluir</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
   function csrftoken(){var m=document.cookie.match(/csrftoken=([^;]+)/);return m?m[1]:''}
+
+  const maskOptions = {
+    mask: 'R$ num',
+    blocks: {
+      num: {
+        mask: Number,
+        scale: 2,
+        radix: ',',
+        mapToRadix: ['.'],
+        thousandsSeparator: '.'
+      }
+    }
+  };
+
+  function showToast(message, type = 'success') {
+    const toastContainer = document.getElementById('toastContainer');
+    if (!toastContainer) return;
+
+    const toastId = 'toast-' + Date.now();
+    const toastIcon = type === 'success' 
+      ? '<i class="bi bi-check-circle-fill text-success me-2"></i>'
+      : '<i class="bi bi-exclamation-triangle-fill text-danger me-2"></i>';
+
+    const toastHtml = `
+      <div id="${toastId}" class="toast" role="alert" aria-live="assertive" aria-atomic="true" data-bs-delay="5000">
+        <div class="toast-header bg-dark text-white border-secondary">
+          ${toastIcon}
+          <strong class="me-auto">Notificação</strong>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+        <div class="toast-body bg-dark text-white">
+          ${message}
+        </div>
+      </div>
+    `;
+    
+    toastContainer.insertAdjacentHTML('beforeend', toastHtml);
+    const toastElement = document.getElementById(toastId);
+    const toast = new bootstrap.Toast(toastElement);
+    toast.show();
+    toastElement.addEventListener('hidden.bs.toast', () => toastElement.remove());
+  }
 
   function saveService(event) {
     event.preventDefault();
     const form = event.target;
+    const submitBtn = form.querySelector('button[type="submit"]');
+    const originalBtnText = submitBtn.innerHTML;
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Salvando...';
+
     const id = form.dataset.id;
     const isCreate = !id;
     
     const title = form.querySelector('[name="title"]').value;
-    const priceStr = form.querySelector('[name="price"]').value;
+    const priceInput = form.querySelector('[name="price"]');
     const duration = form.querySelector('[name="duration_minutes"]').value;
-    // For create, active might not exist in form if I didn't add it, but I should.
-    // In create form above, I didn't add active checkbox. Let's assume active=true for new.
-    // Or add it. I'll stick to default true for new.
     let active = true;
     const activeInput = form.querySelector('[name="active"]');
     if (activeInput) active = activeInput.checked;
 
-    const price = parseFloat(String(priceStr).replace(/\./g,'').replace(',','.'));
+    const price = parseFloat(priceInput.imask.unmaskedValue);
     
+    if (isNaN(price)) {
+        showToast('O preço inserido é inválido.', 'danger');
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalBtnText;
+        return;
+    }
+
     const payload = {
       title: title.trim(),
       price: price,
@@ -181,32 +259,227 @@
     .then(r => r.json().then(d => ({ ok: r.ok, data: d })))
     .then(res => {
       if (res.ok) {
-        window.location.reload();
+        const message = isCreate ? 'Serviço criado com sucesso!' : 'Serviço atualizado com sucesso!';
+        showToast(message, 'success');
+        if (isCreate) {
+          const newServiceCard = createServiceCard(res.data);
+          const servicesList = document.getElementById('servicesList');
+          servicesList.prepend(newServiceCard);
+          form.reset();
+          form.querySelector('[name="price"]').imask.value = '';
+          bootstrap.Collapse.getOrCreateInstance(document.getElementById('collapseCreate')).hide();
+        } else {
+          updateServiceCard(res.data);
+          const collapseElement = document.getElementById('collapse' + id);
+          if (collapseElement) {
+            bootstrap.Collapse.getOrCreateInstance(collapseElement).hide();
+          }
+        }
       } else {
-        alert('Erro ao salvar: ' + JSON.stringify(res.data));
+        const errorMsg = Object.values(res.data).flat().join(' ');
+        showToast(`Erro ao salvar: ${errorMsg}`, 'danger');
       }
     })
     .catch(err => {
-      alert('Erro de conexão.');
+      showToast('Erro de conexão. Verifique sua internet e tente novamente.', 'danger');
       console.error(err);
+    })
+    .finally(() => {
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = originalBtnText;
     });
   }
 
   function deleteService(btn) {
     const id = btn.dataset.id;
-    if (!confirm('Tem certeza que deseja excluir este serviço?')) return;
-    fetch('/api/services/' + id + '/', {
-      method: 'DELETE',
-      headers: { 'X-CSRFToken': csrftoken() }
-    })
-    .then(r => {
-      if (r.ok) {
-        window.location.reload();
-      } else {
-        alert('Erro ao excluir.');
-      }
-    })
-    .catch(err => console.error(err));
+    const card = btn.closest('.card-panel');
+    const serviceName = card.querySelector('h5').textContent;
+
+    const deleteModal = new bootstrap.Modal(document.getElementById('deleteConfirmModal'));
+    document.getElementById('serviceNameToDelete').textContent = serviceName;
+    
+    const confirmBtn = document.getElementById('confirmDeleteBtn');
+    const originalBtnText = confirmBtn.innerHTML;
+    
+    const handleConfirm = () => {
+      confirmBtn.disabled = true;
+      confirmBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Excluindo...';
+
+      fetch('/api/services/' + id + '/', {
+        method: 'DELETE',
+        headers: { 'X-CSRFToken': csrftoken() }
+      })
+      .then(r => {
+        if (r.ok) {
+          if (card) card.remove();
+          showToast('Serviço excluído com sucesso.', 'success');
+        } else {
+          showToast('Erro ao excluir o serviço.', 'danger');
+        }
+      })
+      .catch(err => {
+        showToast('Erro de conexão ao tentar excluir.', 'danger');
+        console.error(err);
+      })
+      .finally(() => {
+        confirmBtn.disabled = false;
+        confirmBtn.innerHTML = originalBtnText;
+        deleteModal.hide();
+        confirmBtn.removeEventListener('click', handleConfirm);
+      });
+    };
+
+    confirmBtn.addEventListener('click', handleConfirm, { once: true });
+    deleteModal.show();
   }
+
+  function updateServiceCard(service) {
+    const card = document.querySelector(`[data-id="${service.id}"]`).closest('.card-panel');
+    if (!card) return;
+
+    card.querySelector('h5').textContent = service.title;
+    const badge = card.querySelector('.badge');
+    badge.textContent = service.active ? 'Ativo' : 'Inativo';
+    badge.className = `badge rounded-pill ${service.active ? 'badge-active' : 'badge-inactive'}`;
+    
+    const priceEl = card.querySelector('.fw-bold');
+    if (priceEl) {
+      priceEl.textContent = `R$ ${parseFloat(service.price).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    }
+
+    const form = card.querySelector('form');
+    if (form) {
+      form.querySelector('[name="title"]').value = service.title;
+      const priceInput = form.querySelector('[name="price"]');
+      if (priceInput.imask) {
+        priceInput.imask.typedValue = service.price;
+      } else {
+        priceInput.value = parseFloat(service.price).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+      }
+      form.querySelector('[name="duration_minutes"]').value = service.duration_minutes;
+      form.querySelector('[name="active"]').checked = service.active;
+    }
+  }
+
+  function createServiceCard(service) {
+    const card = document.createElement('div');
+    card.className = 'card card-panel shadow-sm border-secondary';
+    
+    const priceFormatted = parseFloat(service.price).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+    card.innerHTML = `
+      <div class="card-header service-card-header d-flex align-items-center justify-content-between p-3" 
+           data-bs-toggle="collapse" data-bs-target="#collapse${service.id}" aria-expanded="false">
+        <div class="d-flex align-items-center gap-3">
+          <span class="drag-handle text-secondary pe-2" style="cursor: grab; font-size: 1.2rem;" aria-label="Arrastar para reordenar">
+            <i class="bi bi-grip-vertical"></i>
+          </span>
+          <h5 class="mb-0 text-white">${service.title}</h5>
+          <span class="badge ${service.active ? 'badge-active' : 'badge-inactive'} rounded-pill">
+            ${service.active ? 'Ativo' : 'Inativo'}
+          </span>
+        </div>
+        <div class="text-white fw-bold">
+          R$ ${priceFormatted}
+        </div>
+      </div>
+      <div id="collapse${service.id}" class="collapse">
+        <div class="card-body border-top border-secondary bg-dark">
+          <form onsubmit="saveService(event)" data-id="${service.id}">
+            <div class="row g-3">
+              <div class="col-md-6">
+                <label class="form-label">Nome do Serviço</label>
+                <input type="text" class="form-control panel-input" name="title" value="${service.title}" required>
+              </div>
+              <div class="col-md-3">
+                <label class="form-label">Preço (R$)</label>
+                <input type="text" class="form-control panel-input text-end" name="price" value="${priceFormatted}" required>
+              </div>
+              <div class="col-md-3">
+                <label class="form-label">Duração (min)</label>
+                <input type="number" class="form-control panel-input" name="duration_minutes" value="${service.duration_minutes}" required>
+              </div>
+              <div class="col-12">
+                <div class="form-check form-switch">
+                  <input class="form-check-input" type="checkbox" name="active" id="active${service.id}" ${service.active ? 'checked' : ''}>
+                  <label class="form-check-label" for="active${service.id}">Serviço Ativo (visível no agendamento)</label>
+                </div>
+              </div>
+              <div class="col-12 d-flex justify-content-between align-items-center mt-3">
+                <button type="button" class="btn btn-outline-danger btn-sm" onclick="deleteService(this)" data-id="${service.id}">Excluir Serviço</button>
+                <button type="submit" class="btn btn-primary">Salvar Alterações</button>
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
+    `;
+
+    const priceInput = card.querySelector('input[name="price"]');
+    IMask(priceInput, maskOptions);
+    
+    return card;
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    const priceInputs = document.querySelectorAll('input[name="price"]');
+    priceInputs.forEach(input => {
+      IMask(input, maskOptions);
+    });
+
+    const createBtn = document.querySelector('[data-bs-target="#collapseCreate"]');
+    const servicesList = document.getElementById('servicesList');
+
+    function checkServiceLimit() {
+      const serviceCount = servicesList.children.length;
+      if (serviceCount >= 50) {
+        createBtn.disabled = true;
+        createBtn.title = 'Limite de 50 serviços atingido.';
+      } else {
+        createBtn.disabled = false;
+        createBtn.title = '';
+      }
+    }
+
+    const observer = new MutationObserver(checkServiceLimit);
+    observer.observe(servicesList, { childList: true });
+
+    checkServiceLimit();
+
+    const sortable = new Sortable(servicesList, {
+      animation: 150,
+      handle: '.drag-handle',
+      ghostClass: 'sortable-ghost',
+      onEnd: function (evt) {
+        const orderedIds = Array.from(sortable.el.children).map(card => {
+          const form = card.querySelector('form');
+          return form ? form.dataset.id : null;
+        }).filter(id => id);
+
+        fetch('/api/services/update-order/', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrftoken()
+          },
+          body: JSON.stringify({ ordered_ids: orderedIds })
+        })
+        .then(r => {
+          if (r.ok) {
+            showToast('Ordem dos serviços atualizada.', 'success');
+          } else {
+            showToast('Erro ao atualizar a ordem.', 'danger');
+            // Reverter a ordem visualmente em caso de erro?
+            // Por enquanto, a revalidação do Next.js cuidará disso.
+          }
+        })
+        .catch(err => {
+          showToast('Erro de conexão ao reordenar.', 'danger');
+          console.error(err);
+        });
+      }
+    });
+  });
+
 </script>
 {% endblock %}

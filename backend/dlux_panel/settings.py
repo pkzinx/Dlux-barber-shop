@@ -179,3 +179,8 @@ LOGGING = {
 # Media (uploads)
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+
+# Configurações para revalidação do Next.js
+NEXTJS_REVALIDATE_URL = "http://localhost:3000/api/services/revalidate"
+NEXTJS_REVALIDATE_SECRET = "8f6605f5cbe466099e4b7eed2c96786ae6ddfa8da23adc70f648ca6c22e7910a"
+

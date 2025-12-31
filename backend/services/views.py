@@ -29,6 +29,22 @@ class IsServiceAdmin(permissions.BasePermission):
         return request.user.is_superuser or username in ALLOWED_ADMIN_USERNAMES
 
 
+import requests
+from django.conf import settings
+
+def trigger_revalidation():
+    """
+    Aciona a revalidação do frontend Next.js.
+    """
+    try:
+        url = settings.NEXTJS_REVALIDATE_URL
+        headers = {'x-revalidate-secret': settings.NEXTJS_REVALIDATE_SECRET}
+        payload = {'path': '/'}  # Revalidar a página inicial/serviços
+        requests.post(url, headers=headers, json=payload)
+    except Exception as e:
+        # Logar o erro, mas não quebrar a aplicação
+        print(f"Erro ao acionar revalidação do frontend: {e}")
+
 class ServiceViewSet(viewsets.ModelViewSet):
     queryset = Service.objects.all().order_by('title')
     serializer_class = ServiceSerializer
@@ -37,7 +53,42 @@ class ServiceViewSet(viewsets.ModelViewSet):
     def create(self, request, *args, **kwargs):
         if Service.objects.count() >= 50:
             return Response({'detail': 'Limite de 50 serviços atingido.'}, status=status.HTTP_400_BAD_REQUEST)
-        return super().create(request, *args, **kwargs)
+        response = super().create(request, *args, **kwargs)
+        if response.status_code == status.HTTP_201_CREATED:
+            trigger_revalidation()
+        return response
+
+    def update(self, request, *args, **kwargs):
+        response = super().update(request, *args, **kwargs)
+        if response.status_code == status.HTTP_200_OK:
+            trigger_revalidation()
+        return response
+
+    def destroy(self, request, *args, **kwargs):
+        response = super().destroy(request, *args, **kwargs)
+        if response.status_code == status.HTTP_204_NO_CONTENT:
+            trigger_revalidation()
+        return response
+
+
+
+from django.db import transaction
+from rest_framework.views import APIView
+
+class UpdateServiceOrderView(APIView):
+    permission_classes = [IsServiceAdmin]
+
+    def post(self, request, *args, **kwargs):
+        ordered_ids = request.data.get('ordered_ids', [])
+        if not isinstance(ordered_ids, list):
+            return Response({'detail': 'Formato inválido.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        with transaction.atomic():
+            for index, service_id in enumerate(ordered_ids):
+                Service.objects.filter(id=service_id).update(order=index)
+        
+        trigger_revalidation()
+        return Response(status=status.HTTP_200_OK)
 
 
 class PublicServiceListView(generics.ListAPIView):

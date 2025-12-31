@@ -954,7 +954,7 @@ def finances_barber_stats_data(request: HttpRequest):
     def _norm(s):
         return (s or '').strip().lower()
     all_barbers = [u for u in all_barbers if _norm(getattr(u, 'display_name', '')) not in excluded_labels and _norm(getattr(u, 'username', '')) not in excluded_users]
-    assets_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'public', 'assets', 'img'))
+    assets_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'static', 'assets', 'img'))
     name_to_file = {}
     try:
         for f in os.listdir(assets_dir):

@@ -84,17 +84,17 @@
               {% else %}
                 {% with name=group.barber.display_name|default:group.barber.username %}
                   {% if name|lower == 'kaue' %}
-                    <img src="{% static 'assets/img/kaue.jpg' %}" alt="Kaue" class="avatar" />
+                    <img src="/static/assets/img/kaue.jpg" alt="Kaue" class="avatar" />
                   {% elif name|lower == 'kevin' %}
-                    <img src="{% static 'assets/img/kevin.JPEG' %}" alt="Kevin" class="avatar" />
+                    <img src="/static/assets/img/kevin.JPEG" alt="Kevin" class="avatar" />
+                  {% elif name|lower == 'alafy' %}
+                    <img src="/static/assets/img/alafy.JPEG" alt="Alafy" class="avatar" />
                   {% elif name|lower == 'emerson' %}
-                    <img src="{% static 'assets/img/emerson.JPG' %}" alt="Emerson" class="avatar" />
+                    <img src="/static/assets/img/emerson.JPG" alt="Emerson" class="avatar" />
                   {% elif name|lower == 'rikelv' %}
-                    <img src="{% static 'assets/img/rikelv.JPEG' %}" alt="Rikelv" class="avatar" />
-                  {% elif name|lower == 'alefi' or name|lower == 'alafy' %}
-                    <img src="{% static 'assets/img/alafy.JPEG' %}" alt="Alafy" class="avatar" />
+                    <img src="/static/assets/img/rikelv.JPEG" alt="Rikelv" class="avatar" />
                   {% else %}
-                    <span class="avatar d-inline-flex justify-content-center align-items-center"><span class="small">{{ name|first }}</span></span>
+                    <img src="/static/assets/img/icon-logo.png" alt="Barbeiro" class="avatar" />
                   {% endif %}
                 {% endwith %}
               {% endif %}
@@ -121,8 +121,8 @@
                       <span class="appt-status">{{ a.status }}</span>
                     {% endif %}
                     {% if a.client_phone %}
-                      <a href="https://wa.me/{{ a.client_phone }}" target="_blank" class="text-decoration-none" title="WhatsApp">
-                        <img src="{% static 'assets/img/whatsapp.png' %}" alt="WhatsApp" width="18" height="18" />
+                      <a href="https://wa.me/55{{ a.client_phone|cut:' ' }}" target="_blank" class="text-success" title="WhatsApp">
+                        <img src="/backend/static/assets/img/whatsapp.png" alt="WhatsApp" width="18" height="18" />
                       </a>
                     {% endif %}
                     <a href="#" class="btn btn-sm btn-outline-light edit-appointment-btn"
@@ -297,12 +297,72 @@
           calendar.changeView('timeGridDay');
           calendar.gotoDate(ev.start);
         },
-      eventDidMount: function(info) {
-        // Adicionar classe de cor ao evento
-        const barber = (info.event.extendedProps.barber || '').toLowerCase();
-        const colorClass = barberClasses[barber] || 'appt-default';
-        info.el.classList.add(colorClass);
+      events: function(info, successCallback, failureCallback) {
+        // Obter datas do range atual do FullCalendar
+        const startStr = info.startStr.split('T')[0];
+        const endStr = info.endStr.split('T')[0];
 
+        const params = new URLSearchParams({
+          start: startStr,
+          end: endStr,
+          all: '1',  // Tentar buscar tudo sem paginar se o backend suportar, ou iterar páginas
+        });
+
+        (async function(){
+          try{
+            let url = `/api/appointments/?${params.toString()}`;
+            const items = [];
+            while (url) {
+              const r = await fetch(url, { credentials: 'same-origin' });
+              const j = await r.json();
+              const page = Array.isArray(j) ? j : (j.results || []);
+              for (const appt of page) items.push(appt);
+              url = (j && j.next) ? j.next : '';
+            }
+            
+            const events = items.map(appt => {
+              // Definir cores por status
+              let bg, border;
+              const st = (appt.status || 'scheduled').toLowerCase();
+              
+              if (st === 'done') {
+                bg = '#10b981'; // Verde (Emerald 500)
+                border = '#059669';
+              } else if (st === 'cancelled') {
+                bg = '#ef4444'; // Vermelho (Red 500)
+                border = '#b91c1c';
+              } else {
+                // Scheduled ou outros
+                bg = '#6b7280'; // Cinza (Gray 500)
+                border = '#4b5563';
+              }
+
+              return {
+                id: appt.id.toString(),
+                title: (new Date(appt.start_datetime)).toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'}) + ' — ' + (appt.service?.title || 'Serviço') + (appt.client_name ? ` • ${appt.client_name.split(' ')[0]}` : ''),
+                start: appt.start_datetime,
+                end: appt.end_datetime,
+                backgroundColor: bg,
+                borderColor: border,
+                // classNames: ... (opcional, pode remover se as cores inline bastarem)
+                extendedProps: {
+                  barber: appt.barber?.display_name || appt.barber?.username || 'N/A',
+                  barberId: appt.barber?.id || 0,
+                  client: appt.client_name || 'N/A',
+                  service: appt.service?.title || 'N/A',
+                  status: appt.status || 'scheduled',
+                  phone: appt.client_phone || '',
+                }
+              };
+            });
+            successCallback(events);
+          }catch(e){
+            console.error(e);
+            failureCallback(e);
+          }
+        })();
+      },
+      eventDidMount: function(info) {
         // Popover no hover (desktop) ou click
         const barberDisplay = info.event.extendedProps.barber || 'N/A';
         const client = info.event.extendedProps.client || '';
@@ -323,9 +383,8 @@
 
         info.el.setAttribute('title', `${barberDisplay} • ${client} • ${service}`);
         info.el.setAttribute('data-bs-toggle', 'popover');
-        info.el.setAttribute('data-bs-placement', 'auto');
-        info.el.setAttribute('data-bs-html', 'true');
         info.el.setAttribute('data-bs-content', popoverHtml);
+        
         try{
           if (window.bootstrap && window.bootstrap.Popover) {
             if (info.el._popoverInstance) {
@@ -351,47 +410,7 @@
           document.body.removeChild(btn);
         });
       },
-      events: function(info, successCallback, failureCallback) {
-        const params = new URLSearchParams({
-          future: '1',
-          status: 'scheduled',
-          all: '1',
-        });
 
-        (async function(){
-          try{
-            let url = `/api/appointments/?${params.toString()}`;
-            const items = [];
-            while (url) {
-              const r = await fetch(url, { credentials: 'same-origin' });
-              const j = await r.json();
-              const page = Array.isArray(j) ? j : (j.results || []);
-              for (const appt of page) items.push(appt);
-              url = (j && j.next) ? j.next : '';
-            }
-            const events = items.map(appt => ({
-              id: appt.id.toString(),
-              title: (new Date(appt.start_datetime)).toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'}) + ' — ' + (appt.service?.title || 'Serviço') + (appt.client_name ? ` • ${appt.client_name.split(' ')[0]}` : ''),
-              start: appt.start_datetime,
-              end: appt.end_datetime,
-              backgroundColor: barberColors[(appt.barber?.username || '').toLowerCase()] || '#6b7280',
-              borderColor: barberColors[(appt.barber?.username || '').toLowerCase()] || '#4b5563',
-              classNames: [barberClasses[(appt.barber?.username || '').toLowerCase()] || 'appt-default'],
-              extendedProps: {
-                barber: appt.barber?.display_name || appt.barber?.username || 'N/A',
-                barberId: appt.barber?.id || 0,
-                client: appt.client_name || 'N/A',
-                service: appt.service?.title || 'N/A',
-                status: appt.status || 'scheduled',
-                phone: appt.client_phone || '',
-              }
-            }));
-            successCallback(events);
-          }catch(e){
-            failureCallback(e);
-          }
-        })();
-      }
     });
 
     

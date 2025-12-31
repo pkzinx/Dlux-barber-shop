@@ -302,44 +302,17 @@ class PublicAppointmentCreate(APIView):
                 if candidate:
                     barber_id = candidate.id
                 else:
-                    # Se não existir, criar automaticamente um barbeiro com esse nome
-                    base_username = slugify(barber_name) or 'barber'
-                    username = base_username
-                    suffix = 1
-                    while User.objects.filter(username=username).exists():
-                        username = f"{base_username}{suffix}"
-                        suffix += 1
-                    new_barber = User.objects.create(username=username, role=User.BARBER, display_name=barber_name)
-                    new_barber.set_unusable_password()
-                    new_barber.save()
-                    barber_id = new_barber.id
+                    return Response({'detail': 'Barbeiro não encontrado.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Permitir resolução por título do serviço e criar se não existir
+        # Permitir resolução por título do serviço
         if not service_id:
             service_title = data.get('service_title') or data.get('serviceTitle')
             if service_title:
                 svc = Service.objects.filter(title__iexact=service_title).first()
-                if not svc:
-                    # Heurística simples para definir duração padrão
-                    title_lower = service_title.lower()
-                    duration = 30
-                    if ('corte' in title_lower) and ('barba' in title_lower):
-                        duration = 60
-                    elif 'corte' in title_lower:
-                        duration = 40
-                    elif 'barba' in title_lower:
-                        duration = 30
-                    try:
-                        svc = Service.objects.create(
-                            title=service_title,
-                            price=Decimal('0.00'),
-                            duration_minutes=duration,
-                            active=True,
-                        )
-                    except Exception:
-                        svc = None
                 if svc:
                     service_id = svc.id
+                else:
+                    return Response({'detail': 'Serviço não encontrado.'}, status=status.HTTP_400_BAD_REQUEST)
 
         if not barber_id or not service_id:
             return Response({'detail': 'Barbeiro e serviço são obrigatórios.'}, status=status.HTTP_400_BAD_REQUEST)
