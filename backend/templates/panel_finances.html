@@ -128,10 +128,9 @@
           </div>
           <div class="form-floating mb-3">
             <select class="form-select bg-dark text-light border-secondary" id="withdrawReason" name="withdraw_reason" required>
-              <option value="Fornecedores">Fornecedores</option>
               <option value="Itens básicos">Itens básicos</option>
-              <option value="Aluguel Agua/Luz">Aluguel Agua/Luz</option>
-              <option value="Produtos Freezer">Produtos Freezer</option>
+              <option value="Aluguel/Agua/Luz">Aluguel/Agua/Luz</option>
+              <option value="Produtos freezer">Produtos freezer</option>
               <option value="Outros">Outros</option>
             </select>
             <label for="withdrawReason">Motivo da retirada</label>
@@ -155,14 +154,27 @@
       <div class="card-body p-4">
         <div class="d-block d-sm-flex align-items-center justify-content-between mb-3">
           <div class="mb-3 mb-sm-0">
-            <h5 class="card-title widget-card-title"></h5>
+            <h5 class="card-title widget-card-title">Ocupação por Horário</h5>
           </div>
-          <div>
+          <div class="d-flex align-items-center gap-2">
+            <div class="form-check form-switch">
+              <input class="form-check-input" type="checkbox" id="occupancyCompareSwitch">
+              <label class="form-check-label fs-7" for="occupancyCompareSwitch">Comparar</label>
+            </div>
+            <select id="occupancyMonthSelect" class="form-select text-secondary border-light-subtle"></select>
+            <select id="occupancyMonthCompareSelect" class="form-select text-secondary border-light-subtle" style="display:none"></select>
             <button class="collapse-toggle ms-2" data-bs-toggle="collapse" data-bs-target="#occupancyBody" aria-expanded="true" aria-controls="occupancyBody" title="Minimizar/Expandir"><span class="icon">▾</span></button>
           </div>
         </div>
         <div id="occupancyBody" class="collapse show">
-          <div id="occupancyChart"></div>
+          <div class="row g-3 align-items-stretch" id="occupancyChartsRow">
+            <div class="col-12 col-lg-12" id="occupancyMainCol">
+              <div id="occupancyChart"></div>
+            </div>
+            <div class="col-12 col-lg-6" id="occupancyCompareCol" style="display:none">
+              <div id="occupancyChartCompare"></div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -175,7 +187,7 @@
     <div class="card widget-card bg-dark text-light border-secondary shadow-sm mb-4">
       <div class="card-header d-flex justify-content-between align-items-center">
         <div class="d-flex align-items-center gap-3">
-          <span class="fw-semibold">Gráfico de agendamentos concluídos</span>
+          <span class="fw-semibold">Agendamentos concluídos</span>
         </div>
         <div class="d-flex align-items-center gap-2 chart-controls">
           <select id="chartRange" class="form-select form-select-sm">
@@ -188,7 +200,6 @@
             <input class="form-check-input" type="checkbox" id="chartCompare">
             <label class="form-check-label small" for="chartCompare">Comparar</label>
           </div>
-          <!-- removed include edited toggle as requested -->
           <button class="collapse-toggle ms-2" data-bs-toggle="collapse" data-bs-target="#chartBody" aria-expanded="true" aria-controls="chartBody" title="Minimizar/Expandir">
             <span class="icon">▾</span>
           </button>
@@ -350,7 +361,7 @@
       <div class="card-body p-4">
         <div class="d-block d-sm-flex align-items-center justify-content-between mb-3">
           <div class="mb-3 mb-sm-0">
-            <h5 class="card-title widget-card-title"></h5>
+            <h5 class="card-title widget-card-title">Taxa de Cancelamento</h5>
           </div>
           <div>
             <button class="collapse-toggle ms-2" data-bs-toggle="collapse" data-bs-target="#noShowChartBody" aria-expanded="true" aria-controls="noShowChartBody" title="Minimizar/Expandir"><span class="icon">▾</span></button>
@@ -371,9 +382,10 @@
       <div class="card-body p-4">
         <div class="d-block d-sm-flex align-items-center justify-content-between mb-3">
           <div class="mb-3 mb-sm-0">
-            <h5 class="card-title widget-card-title"></h5>
+            <h5 class="card-title widget-card-title">Clientes Mais Frequentes</h5>
           </div>
-          <div>
+          <div class="d-flex align-items-center gap-2">
+            <select id="clientsTopRangeSelect" class="form-select text-secondary border-light-subtle"></select>
             <button class="collapse-toggle ms-2" data-bs-toggle="collapse" data-bs-target="#clientsTopBody" aria-expanded="true" aria-controls="clientsTopBody" title="Minimizar/Expandir"><span class="icon">▾</span></button>
           </div>
         </div>
@@ -385,17 +397,26 @@
   </div>
 </div>
 
-<style>
-#bsb-chart-funnel .canvasjs-chart-credit{display:none !important}
-#bsb-chart-funnel .canvasjs-chart-toolbar{display:none !important}
-.canvasjs-chart-credit{display:none !important}
-.canvasjs-chart-toolbar{display:none !important}
-</style>
-
 <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
-<script src="https://cdn.canvasjs.com/canvasjs.min.js"></script>
-<script src="https://code.highcharts.com/highcharts.js"></script>
 <script>
+  function showToast(msg, type='danger') {
+    const container = document.getElementById('toastContainer');
+    if (!container) return;
+    const el = document.createElement('div');
+    el.className = `toast align-items-center text-bg-${type} border-0 show`;
+    el.setAttribute('role', 'alert');
+    el.setAttribute('aria-live', 'assertive');
+    el.setAttribute('aria-atomic', 'true');
+    el.innerHTML = `
+        <div class="d-flex">
+            <div class="toast-body">${msg}</div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+    `;
+    container.appendChild(el);
+    setTimeout(() => { el.remove(); }, 5000);
+  }
+
   // Toggle collapse icon direction for collapse-toggle buttons
   (function(){
     const btn = document.getElementById('exportCsvBtn');
@@ -441,44 +462,10 @@
 
   (function(){
     const el = document.getElementById('bsb-chart-funnel');
-    if (!el || !window.CanvasJS) return;
-    function computeHeight(){
-      const w = el.clientWidth || 600;
-      return Math.max(260, Math.min(500, Math.round(w * 0.5)));
-    }
+    if (!el) return;
+    
     let chart = null;
-    function render(labels, series){
-      const total = (series || []).reduce((acc, v) => acc + (v || 0), 0);
-      const dataPoints = (labels || []).map((label, i) => {
-        const y = Number(series[i] || 0);
-        const pct = total ? ((y / total) * 100) : 0;
-        return { y: y, label: label, percentage: Number(pct.toFixed(2)) };
-      }).sort((a,b) => b.y - a.y);
-      el.style.height = computeHeight() + 'px';
-      if (!chart){
-        chart = new CanvasJS.Chart('bsb-chart-funnel', {
-          animationEnabled: true,
-          theme: 'dark2',
-          backgroundColor: 'transparent',
-          data: [{
-            type: 'funnel',
-            indexLabelPlacement: 'inside',
-            indexLabelFontColor: 'white',
-            toolTipContent: '<b>{label}</b>: {y} <b>({percentage}%)</b>',
-            indexLabel: '{label} ({percentage}%)',
-            dataPoints: dataPoints
-          }]
-        });
-      } else {
-        chart.options.data[0].dataPoints = dataPoints;
-      }
-      chart.render();
-    }
-    function adjust(){
-      if (!chart) return;
-      el.style.height = computeHeight() + 'px';
-      chart.render();
-    }
+    
     async function fetchFunnel(){
       try{
         const res = await fetch('/painel/financas/withdrawals-funnel-data/', { credentials: 'same-origin' });
@@ -486,116 +473,370 @@
         const json = await res.json();
         const labels = json.labels || [];
         const series = (json.series || []).map(v => Number(v || 0));
-        render(labels, series);
-      }catch(e){ console.error(e); }
+        
+        if (labels.length === 0) {
+           el.innerHTML = '<div class="text-center text-muted py-5">Sem retiradas no período.</div>';
+           return;
+        }
+
+        const options = {
+          series: [{
+            name: 'Valor (R$)',
+            data: series
+          }],
+          chart: {
+            type: 'bar',
+            height: 350,
+            toolbar: { show: false },
+            fontFamily: 'inherit',
+            background: 'transparent'
+          },
+          theme: { mode: 'dark' },
+          plotOptions: {
+            bar: {
+              borderRadius: 4,
+              horizontal: true,
+              distributed: true
+            }
+          },
+          colors: ['#0d6efd', '#6610f2', '#6f42c1', '#d63384', '#dc3545', '#fd7e14', '#ffc107', '#198754', '#20c997', '#0dcaf0'],
+          dataLabels: {
+            enabled: true,
+            formatter: function (val) {
+              return "R$ " + val.toFixed(2).replace('.', ',');
+            }
+          },
+          xaxis: {
+            categories: labels,
+            labels: {
+              style: { colors: '#adb5bd' },
+              formatter: function(val) { return "R$ " + val; }
+            }
+          },
+          yaxis: {
+            labels: {
+              style: { colors: '#adb5bd' }
+            }
+          },
+          grid: {
+            borderColor: 'rgba(255,255,255,0.1)'
+          },
+          tooltip: {
+            y: {
+              formatter: function (val) {
+                return "R$ " + val.toFixed(2).replace('.', ',');
+              }
+            }
+          }
+        };
+
+        if(chart) {
+            chart.updateOptions(options);
+        } else {
+            chart = new ApexCharts(el, options);
+            chart.render();
+        }
+      }catch(e){ 
+        console.error(e);
+        el.innerHTML = '<div class="text-center text-danger py-5">Erro ao carregar dados.</div>';
+        showToast('Erro ao carregar gráfico de retiradas');
+      }
     }
     fetchFunnel();
-    if (window.ResizeObserver){
-      const ro = new ResizeObserver(function(){ adjust(); });
-      ro.observe(el);
-    } else {
-      window.addEventListener('resize', adjust);
-      window.addEventListener('orientationchange', adjust);
-    }
   })();
 
-  // Highcharts: Taxa de No-Show e Cancelamento
+  // ApexCharts: Taxa de No-Show e Cancelamento
   (function(){
     const el = document.getElementById('noShowChart');
     const body = document.getElementById('noShowChartBody');
-    if(!el || !window.Highcharts) return;
+    if(!el) return;
+    
+    let chart = null;
+
     function render(labels, doneRate, cancelRate){
-      window.Highcharts.chart('noShowChart', {
-        chart: { backgroundColor: 'transparent', height: 320 },
-        title: { text: 'Taxa de cancelamento e concluidos', align: 'left', style: { color: '#ffffff' } },
-        subtitle: { text: '', align: 'left' },
-        xAxis: { categories: labels, labels: { style: { color: '#bbbbbb' } } },
-        yAxis: { title: { text: 'Percentual (%)', style: { color: '#bbbbbb' } }, max: 100 },
-        legend: { layout: 'horizontal', align: 'center', verticalAlign: 'bottom', itemStyle: { color: '#dddddd' } },
-        plotOptions: { series: { marker: { enabled: false } } },
+      const options = {
+        chart: { type: 'area', height: 320, toolbar: {show: false}, background: 'transparent' },
+        colors: ['#00E396', '#FF4560'],
         series: [
-          { name: 'Cancelados/Não compareceu', data: cancelRate, color: '#FF4560' },
-          { name: 'Concluídos', data: doneRate, color: '#00E396' }
+          { name: 'Concluídos', data: doneRate },
+          { name: 'Cancelados/Não compareceu', data: cancelRate }
         ],
-        credits: { enabled: false }
-      });
+        xaxis: { categories: labels, labels: { style: { colors: '#adb5bd' } } },
+        yaxis: { max: 100, labels: { style: { colors: '#adb5bd' } } },
+        theme: { mode: 'dark' },
+        dataLabels: { enabled: false },
+        stroke: { curve: 'smooth', width: 2 },
+        fill: { type: 'gradient', gradient: { opacityFrom: 0.6, opacityTo: 0.1 } },
+        grid: { borderColor: 'rgba(255,255,255,0.1)' }
+      };
+
+      if(chart) {
+        chart.updateOptions(options);
+      } else {
+        chart = new ApexCharts(el, options);
+        chart.render();
+      }
     }
+
     async function fetchData(){
       try{
         const r = await fetch('/painel/financas/no-show-rate/', { credentials: 'same-origin' });
+        if(!r.ok) throw new Error('Falha');
         const j = await r.json();
         const labels = j.labels || [];
         const doneRate = (j.series && j.series.done_rate) || [];
         const cancelRate = (j.series && j.series.cancel_rate) || [];
         render(labels, doneRate, cancelRate);
-      }catch(e){ console.error(e); }
+      }catch(e){ 
+        console.error(e);
+        showToast('Erro ao carregar taxa de cancelamento');
+      }
     }
     fetchData();
     body && body.addEventListener('shown.bs.collapse', fetchData);
   })();
 
-  // Highcharts: Clientes mais frequentes
+  // ApexCharts: Clientes mais frequentes
   (function(){
     const el = document.getElementById('clientsTopChart');
     const body = document.getElementById('clientsTopBody');
-    if(!el || !window.Highcharts) return;
+    const sel = document.getElementById('clientsTopRangeSelect');
+    if(!el || !sel) return;
+    
+    let chart = null;
+
     function render(data){
-      const points = Array.isArray(data) ? data.map(function(it){ return { name: it[0], y: Number(it[1] || 0) }; }) : [];
-      window.Highcharts.chart('clientsTopChart', {
-        chart: { type: 'column', backgroundColor: 'transparent', height: 320 },
-        title: { text: 'Clientes mais frequentes', align: 'left', style: { color: '#ffffff' } },
-        subtitle: { text: '', align: 'left' },
-        xAxis: { type: 'category', labels: { autoRotation: [-45, -90], style: { fontSize: '13px', fontFamily: 'Verdana, sans-serif', color: '#bbbbbb' } } },
-        yAxis: { min: 0, title: { text: 'Visitas concluídas', style: { color: '#bbbbbb' } } },
-        legend: { enabled: false },
-        tooltip: { pointFormat: 'Visitas concluídas: <b>{point.y}</b>' },
-        series: [{
-          name: 'Visitas',
-          data: points,
-          colorByPoint: true,
-          dataLabels: { enabled: true, rotation: -90, color: '#FFFFFF', inside: true, verticalAlign: 'top', format: '{point.y}', y: 10, style: { fontSize: '13px', fontFamily: 'Verdana, sans-serif' } }
-        }],
-        credits: { enabled: false }
+      // data is [['Name', count], ...]
+      const names = data.map(x => x[0]);
+      const counts = data.map(x => x[1]);
+
+      const options = {
+        chart: { type: 'bar', height: 320, toolbar: {show: false}, background: 'transparent' },
+        series: [{ name: 'Visitas', data: counts }],
+        xaxis: { categories: names, labels: { style: { colors: '#adb5bd' } } },
+        yaxis: { labels: { style: { colors: '#adb5bd' } } },
+        theme: { mode: 'dark' },
+        plotOptions: { bar: { borderRadius: 4, distributed: true } },
+        colors: ['#00E396', '#FEB019', '#FF4560', '#775DD0', '#3F51B5', '#546E7A', '#26A69A', '#D10CE8', '#E91E63', '#29B6F6'],
+        legend: { show: false },
+        grid: { borderColor: 'rgba(255,255,255,0.1)' }
+      };
+
+      if(chart) {
+        chart.updateOptions(options);
+      } else {
+        chart = new ApexCharts(el, options);
+        chart.render();
+      }
+    }
+
+    function buildOptions(){
+      const now = new Date();
+      const ranges = [
+        { val: 'range:7', label: 'Últ. 7 dias' },
+        { val: 'range:15', label: 'Últ. 15 dias' },
+        { val: 'range:30', label: 'Últ. 30 dias' },
+        { val: 'range:60', label: 'Últ. 60 dias' },
+        { val: 'range:90', label: 'Últ. 90 dias' },
+      ];
+      const months = [];
+      for(let i=0;i<3;i++){
+        const d = new Date(now.getFullYear(), now.getMonth()-i, 1);
+        const val = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+        const label = d.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+        months.push({ val: `month:${val}`, label: label });
+      }
+      sel.innerHTML = '';
+      ranges.forEach(o => { 
+        const op = document.createElement('option'); 
+        op.value = o.val; 
+        op.textContent = o.label; 
+        if(o.val === 'range:30') op.selected = true;
+        sel.appendChild(op); 
+      });
+      months.forEach(o => { 
+        const op = document.createElement('option'); 
+        op.value = o.val; 
+        op.textContent = o.label; 
+        sel.appendChild(op); 
       });
     }
+
     async function fetchData(){
+      const val = sel.value;
+      let params = '';
+      if (val.startsWith('range:')) {
+        params = `range=${val.split(':')[1]}`;
+      } else if (val.startsWith('month:')) {
+        params = `month=${val.split(':')[1]}`;
+      } else {
+         if(val.includes('-')) params = `month=${val}`;
+         else params = `range=30`;
+      }
       try{
-        const r = await fetch('/painel/financas/clients-top-data/', { credentials: 'same-origin' });
+        const r = await fetch(`/painel/financas/clients-top-data/?${params}`, { credentials: 'same-origin' });
+        if(!r.ok) throw new Error('Falha');
         const j = await r.json();
         const data = Array.isArray(j.data) ? j.data : [];
         render(data);
-      }catch(e){ console.error(e); }
+      }catch(e){ 
+        console.error(e);
+        showToast('Erro ao carregar clientes frequentes');
+      }
     }
+    
+    buildOptions();
     fetchData();
+    sel.addEventListener('change', fetchData);
     body && body.addEventListener('shown.bs.collapse', fetchData);
   })();
 
+  // ApexCharts: Ocupação
   (function(){
     const el = document.getElementById('occupancyChart');
+    const elCmp = document.getElementById('occupancyChartCompare');
     const body = document.getElementById('occupancyBody');
-    if(!el || !window.Highcharts) return;
-    function render(data){
-      const points = Array.isArray(data) ? data.map(function(it){ return { name: it.name || '', y: Number(it.y || 0) }; }) : [];
-      window.Highcharts.chart('occupancyChart', {
-        chart: { type: 'pie', backgroundColor: 'transparent', height: 320 },
-        title: { text: 'Horários de Baixa Ocupação vs Alta Ocupação', align: 'left', style: { color: '#ffffff' } },
-        tooltip: { pointFormat: '{series.name}: <b>{point.percentage:.1f}%</b>' },
-        accessibility: { point: { valueSuffix: '%' } },
-        plotOptions: { pie: { allowPointSelect: true, cursor: 'pointer', dataLabels: { enabled: false }, showInLegend: true } },
-        series: [{ name: 'Períodos', colorByPoint: true, data: points }],
-        credits: { enabled: false }
-      });
+    const sel = document.getElementById('occupancyMonthSelect');
+    const cmpSwitch = document.getElementById('occupancyCompareSwitch');
+    const cmpSel = document.getElementById('occupancyMonthCompareSelect');
+    const mainCol = document.getElementById('occupancyMainCol');
+    const cmpCol = document.getElementById('occupancyCompareCol');
+    
+    if(!el || !sel || !cmpSwitch || !cmpSel || !mainCol || !cmpCol) return;
+    
+    let chart = null;
+    let chartCmp = null;
+
+    function render(chartInstance, container, data){
+      // data is [{name: '08-10', y: 5}, ...]
+      const labels = data.map(x => x.name);
+      const series = data.map(x => x.y);
+      
+      const options = {
+        chart: { type: 'donut', height: 320, background: 'transparent' },
+        series: series,
+        labels: labels,
+        theme: { mode: 'dark' },
+        plotOptions: { 
+          pie: { 
+            donut: { 
+              labels: { 
+                show: true, 
+                total: { show: true, label: 'Total', color: '#adb5bd' } 
+              } 
+            } 
+          } 
+        },
+        dataLabels: { enabled: false },
+        stroke: { show: false }
+      };
+
+      if(chartInstance) {
+        chartInstance.updateOptions(options);
+        return chartInstance;
+      } else {
+        const c = new ApexCharts(container, options);
+        c.render();
+        return c;
+      }
     }
-    async function fetchData(){
+
+    function buildOptions(){
+      const now = new Date();
+      const ranges = [
+        { val: 'range:7', label: 'Últ. 7 dias' },
+        { val: 'range:15', label: 'Últ. 15 dias' },
+        { val: 'range:30', label: 'Últ. 30 dias' },
+        { val: 'range:60', label: 'Últ. 60 dias' },
+        { val: 'range:90', label: 'Últ. 90 dias' },
+      ];
+      const months = [];
+      for(let i=0;i<3;i++){
+        const d = new Date(now.getFullYear(), now.getMonth()-i, 1);
+        const val = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+        const label = d.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+        months.push({ val: `month:${val}`, label: label });
+      }
+      
+      const populate = (element, defaultVal) => {
+          element.innerHTML = '';
+          ranges.forEach(o => { 
+            const op = document.createElement('option'); 
+            op.value = o.val; 
+            op.textContent = o.label; 
+            if(o.val === defaultVal) op.selected = true;
+            element.appendChild(op); 
+          });
+          months.forEach(o => { 
+            const op = document.createElement('option'); 
+            op.value = o.val; 
+            op.textContent = o.label; 
+            element.appendChild(op); 
+          });
+      };
+      
+      populate(sel, 'range:30');
+      populate(cmpSel, 'range:30');
+    }
+
+    async function fetchData(val, chartInstance, container){
+      let params = '';
+      if (val.startsWith('range:')) {
+        params = `range=${val.split(':')[1]}`;
+      } else if (val.startsWith('month:')) {
+        params = `month=${val.split(':')[1]}`;
+      } else {
+         if(val.includes('-')) params = `month=${val}`;
+         else params = `range=30`;
+      }
       try{
-        const r = await fetch('/painel/financas/occupancy-buckets/', { credentials: 'same-origin' });
+        const r = await fetch(`/painel/financas/occupancy-buckets/?${params}`, { credentials: 'same-origin' });
+        if(!r.ok) throw new Error('Falha');
         const j = await r.json();
         const data = Array.isArray(j.data) ? j.data : [];
-        render(data);
-      }catch(e){ }
+        return render(chartInstance, container, data);
+      }catch(e){ 
+        console.error(e);
+        showToast('Erro ao carregar ocupação');
+        return chartInstance;
+      }
     }
-    fetchData();
-    body && body.addEventListener('shown.bs.collapse', fetchData);
+
+    async function update(){
+        chart = await fetchData(sel.value, chart, el);
+        if(cmpSwitch.checked){
+            // Show compare
+            mainCol.classList.remove('col-lg-12');
+            mainCol.classList.add('col-lg-6');
+            cmpCol.style.display = 'block';
+            cmpSel.style.display = 'block';
+            
+            // Wait a bit for layout
+            setTimeout(async () => {
+                 chartCmp = await fetchData(cmpSel.value, chartCmp, elCmp);
+            }, 50);
+        } else {
+            // Hide compare
+            mainCol.classList.remove('col-lg-6');
+            mainCol.classList.add('col-lg-12');
+            cmpCol.style.display = 'none';
+            cmpSel.style.display = 'none';
+        }
+        // Resize main chart after layout change
+        setTimeout(() => {
+            if(chart) chart.updateOptions({});
+        }, 100);
+    }
+    
+    buildOptions();
+    update();
+    
+    sel.addEventListener('change', update);
+    cmpSwitch.addEventListener('change', update);
+    cmpSel.addEventListener('change', () => {
+        if(cmpSwitch.checked) fetchData(cmpSel.value, chartCmp, elCmp).then(c => chartCmp = c);
+    });
+    body && body.addEventListener('shown.bs.collapse', update);
   })();
 </script>
 
@@ -701,6 +942,7 @@
         }, false, true);
       }catch(err){
         console.error('Chart fetch error', err);
+        showToast('Erro ao carregar gráfico de agendamentos');
       }
     }
 
@@ -735,27 +977,69 @@
 
     function buildMonthOptions(){
       const now = new Date();
-      const opts = [];
+      // Build standard range options
+      const ranges = [
+        { val: 'range:7', label: 'Últ. 7 dias' },
+        { val: 'range:15', label: 'Últ. 15 dias' },
+        { val: 'range:30', label: 'Últ. 30 dias' },
+        { val: 'range:60', label: 'Últ. 60 dias' },
+        { val: 'range:90', label: 'Últ. 90 dias' },
+      ];
+
+      // Build recent months options
+      const months = [];
       for(let i=0;i<3;i++){
         const d = new Date(now.getFullYear(), now.getMonth()-i, 1);
         const val = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
         const label = d.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
-        opts.push({ val, label });
+        months.push({ val: `month:${val}`, label: label });
       }
+
       monthSel.innerHTML = '';
-      opts.forEach(o => { const op = document.createElement('option'); op.value = o.val; op.textContent = o.label; monthSel.appendChild(op); });
+      
+      // Add ranges
+      ranges.forEach(o => { 
+        const op = document.createElement('option'); 
+        op.value = o.val; 
+        op.textContent = o.label; 
+        // Default to 30 days if desired, or keep first. 
+        if(o.val === 'range:30') op.selected = true;
+        monthSel.appendChild(op); 
+      });
+
+      // Add separator or just append months
+      months.forEach(o => { 
+        const op = document.createElement('option'); 
+        op.value = o.val; 
+        op.textContent = o.label; 
+        monthSel.appendChild(op); 
+      });
     }
 
     async function fetchRevenue(){
-      const month = monthSel.value;
+      const val = monthSel.value;
+      let params = '';
+      if (val.startsWith('range:')) {
+        params = `range=${val.split(':')[1]}`;
+      } else if (val.startsWith('month:')) {
+        params = `month=${val.split(':')[1]}`;
+      } else {
+         // Fallback for old values if any or default
+         if(val.includes('-')) params = `month=${val}`;
+         else params = `range=30`;
+      }
+
       try{
-        const res = await fetch(`/painel/financas/revenue-data/?month=${encodeURIComponent(month)}`, { credentials: 'same-origin' });
+        const res = await fetch(`/painel/financas/revenue-data/?${params}`, { credentials: 'same-origin' });
         if(!res.ok) throw new Error('Falha ao obter receita');
         const json = await res.json();
         const series = json.series || [];
         const s = series.map(it => ({ name: it.name, data: it.data }));
         revChart.updateSeries(s, true);
-      }catch(e){ console.error(e); }
+      }catch(e){ 
+        console.error(e);
+        showToast('Erro ao carregar receita');
+      }
     }
 
     buildMonthOptions();
@@ -798,46 +1082,95 @@
 
     function buildMonthOptions(){
       const now = new Date();
-      const opts = [];
+      
+      const ranges = [
+        { val: 'range:7', label: 'Últ. 7 dias' },
+        { val: 'range:15', label: 'Últ. 15 dias' },
+        { val: 'range:30', label: 'Últ. 30 dias' },
+        { val: 'range:60', label: 'Últ. 60 dias' },
+        { val: 'range:90', label: 'Últ. 90 dias' },
+      ];
+
+      const months = [];
       for(let i=0;i<3;i++){
         const d = new Date(now.getFullYear(), now.getMonth()-i, 1);
         const val = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
         const label = d.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
-        opts.push({ val, label });
+        months.push({ val: `month:${val}`, label: label });
       }
+      
       sel.innerHTML = '';
       cmpSel.innerHTML = '';
-      opts.forEach(o => {
-        const op = document.createElement('option'); op.value = o.val; op.textContent = o.label; sel.appendChild(op);
-        const op2 = document.createElement('option'); op2.value = o.val; op2.textContent = o.label; cmpSel.appendChild(op2);
-      });
+      
+      const populate = (el) => {
+          ranges.forEach(o => { 
+            const op = document.createElement('option'); 
+            op.value = o.val; 
+            op.textContent = o.label; 
+            if(o.val === 'range:30') op.selected = true;
+            el.appendChild(op); 
+          });
+          months.forEach(o => { 
+            const op = document.createElement('option'); 
+            op.value = o.val; 
+            op.textContent = o.label; 
+            el.appendChild(op); 
+          });
+      };
+      
+      populate(sel);
+      populate(cmpSel);
     }
 
     async function fetchBreakdown(){
-      const month = sel.value;
+      const val = sel.value;
+      let params = '';
+      if (val.startsWith('range:')) {
+        params = `range=${val.split(':')[1]}`;
+      } else if (val.startsWith('month:')) {
+        params = `month=${val.split(':')[1]}`;
+      } else {
+         if(val.includes('-')) params = `month=${val}`;
+         else params = `range=30`;
+      }
       try{
-        const res = await fetch(`/painel/financas/services-breakdown-data/?month=${encodeURIComponent(month)}`, { credentials: 'same-origin' });
+        const res = await fetch(`/painel/financas/services-breakdown-data/?${params}`, { credentials: 'same-origin' });
         if(!res.ok) throw new Error('Falha ao obter serviços');
         const json = await res.json();
         const labels = json.labels || [];
         const series = json.series || [];
         donut.updateOptions({ labels }, false, true);
         donut.updateSeries(series, true);
-      }catch(e){ console.error(e); }
+      }catch(e){ 
+        console.error(e);
+        showToast('Erro ao carregar serviços');
+      }
     }
 
     async function fetchBreakdownCmp(){
-      const month = cmpSel.value;
+      const val = cmpSel.value;
       if (!donutCmp) return;
+      let params = '';
+      if (val.startsWith('range:')) {
+        params = `range=${val.split(':')[1]}`;
+      } else if (val.startsWith('month:')) {
+        params = `month=${val.split(':')[1]}`;
+      } else {
+         if(val.includes('-')) params = `month=${val}`;
+         else params = `range=30`;
+      }
       try{
-        const res = await fetch(`/painel/financas/services-breakdown-data/?month=${encodeURIComponent(month)}`, { credentials: 'same-origin' });
+        const res = await fetch(`/painel/financas/services-breakdown-data/?${params}`, { credentials: 'same-origin' });
         if(!res.ok) throw new Error('Falha ao obter serviços');
         const json = await res.json();
         const labels = json.labels || [];
         const series = json.series || [];
         donutCmp.updateOptions({ labels }, false, true);
         donutCmp.updateSeries(series, true);
-      }catch(e){ console.error(e); }
+      }catch(e){ 
+        console.error(e);
+        showToast('Erro ao carregar comparação de serviços');
+      }
     }
 
     buildMonthOptions();
@@ -952,17 +1285,21 @@
         if (range) qs.set('range', range);
         if (month) qs.set('month', month);
         const res = await fetch(`/painel/financas/barber-stats-data/?${qs.toString()}`, { credentials: 'same-origin' });
-        if(!res.ok) throw new Error('Falha ao obter barbeiros');
+        if(!res.ok) throw new Error('Falha ao obter dados de barbeiros');
         const json = await res.json();
         const labels = json.labels || [];
-        const series = json.series || [];
-        const barbers = json.barbers || [];
-        const palette = ['#00E396', '#FEB019', '#FF4560', '#775DD0', '#3F51B5', '#546E7A', '#26A69A', '#D10CE8', '#E91E63', '#29B6F6'];
-        const colors = palette.slice(0, Math.max(labels.length, 1));
-        chart.updateOptions({ xaxis: { categories: labels }, colors }, false, true);
-        chart.updateSeries([{ name: 'Concluídos', data: series }], true);
-        renderBarberList(barbers, colors);
-      }catch(e){ console.error(e); }
+        const seriesData = (json.series || []).map(v => parseInt(v||0));
+        const barbers = json.barbers || []; // expect {name, avatar_url, count}
+
+        chart.updateOptions({ xaxis: { categories: labels } });
+        chart.updateSeries([{ name: 'Concluídos', data: seriesData }]);
+        
+        // Render side list
+        renderBarberList(barbers, ['#00E396', '#FEB019', '#FF4560', '#775DD0', '#3F51B5', '#546E7A', '#26A69A', '#D10CE8', '#E91E63', '#29B6F6']);
+      }catch(e){ 
+        console.error(e);
+        showToast('Erro ao carregar estatísticas por barbeiro');
+      }
     }
 
     buildRangeOptions();
@@ -970,5 +1307,4 @@
     sel.addEventListener('change', fetchBarberStats);
   })();
 </script>
-
 {% endblock %}

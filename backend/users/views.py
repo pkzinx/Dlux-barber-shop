@@ -53,7 +53,7 @@ def dashboard_barber(request: HttpRequest):
     )
 
     appts_done_today = appts_today.filter(status='done')
-    appts_value_today = appts_done_today.aggregate(total=Sum('service__price'))['total'] or 0
+    appts_value_today = appts_done_today.filter(sale__isnull=True).aggregate(total=Sum('service__price'))['total'] or 0
     sales_value_today = sales_today.aggregate(total=Sum('amount'))['total'] or 0
     day_revenue = (appts_value_today or 0) + (sales_value_today or 0)
 
@@ -98,7 +98,7 @@ def dashboard_admin(request: HttpRequest):
 
     status_breakdown = appts_today.values('status').annotate(c=Count('id'))
     appts_done_today = appts_today.filter(status='done')
-    appts_value_today = appts_done_today.aggregate(total=Sum('service__price'))['total'] or 0
+    appts_value_today = appts_done_today.filter(sale__isnull=True).aggregate(total=Sum('service__price'))['total'] or 0
     sales_value_today = sales_today.aggregate(total=Sum('amount'))['total'] or 0
     sales_total = (appts_value_today or 0) + (sales_value_today or 0)
     # Exibir número de barbeiros como 5
@@ -232,6 +232,7 @@ def panel_finances(request: HttpRequest):
             amt = None
         if amt:
             w = Withdrawal.objects.create(user=user, amount=amt, note=note)
+            messages.success(request, 'Retirada registrada com sucesso!')
             # Audit log for withdrawal
             try:
                 AuditLog.objects.create(
@@ -258,8 +259,8 @@ def panel_finances(request: HttpRequest):
     appts_month_done = Appointment.objects.filter(status='done', end_datetime__gte=month_start, end_datetime__lt=today_end, **appts_filter)
 
     # KPIs baseados em agendamentos concluídos + vendas pagas
-    appts_today_value = appts_completed_today.aggregate(total=Sum('service__price'))['total'] or 0
-    appts_month_value = appts_month_done.aggregate(total=Sum('service__price'))['total'] or 0
+    appts_today_value = appts_completed_today.filter(sale__isnull=True).aggregate(total=Sum('service__price'))['total'] or 0
+    appts_month_value = appts_month_done.filter(sale__isnull=True).aggregate(total=Sum('service__price'))['total'] or 0
     sales_today_value = sales_today.filter(status='paid').aggregate(total=Sum('amount'))['total'] or 0
     sales_month_value = sales_month.filter(status='paid').aggregate(total=Sum('amount'))['total'] or 0
     # Cancelados hoje (considerando janela pelo start_datetime, como nos painéis)
@@ -269,12 +270,19 @@ def panel_finances(request: HttpRequest):
         start_datetime__lt=today_end,
         **appts_filter,
     )
+
+    def fmt_money(v):
+        if v is None: v = 0
+        return "{:.2f}".format(v).replace('.', ',')
+
+    today_rev = (appts_today_value or 0) + (sales_today_value or 0)
+    month_rev = (appts_month_value or 0) + (sales_month_value or 0)
+
     kpis = {
-        'today_revenue': (appts_today_value or 0) + (sales_today_value or 0),
-        'month_revenue': (appts_month_value or 0) + (sales_month_value or 0),
+        'today_revenue': fmt_money(today_rev),
+        'month_revenue': fmt_money(month_rev),
         'sales_count': sales_today.count(),
-        # Concluídos Hoje deve incluir vendas registradas hoje
-        'appts_completed': appts_completed_today.count() + sales_today.count(),
+        'appts_completed': appts_completed_today.count() + sales_today.filter(appointment__isnull=True).count(),
         'appts_cancelled': appts_cancelled_today.count(),
     }
 
@@ -284,6 +292,7 @@ def panel_finances(request: HttpRequest):
             status='done',
             end_datetime__gte=month_start,
             end_datetime__lt=today_end,
+            sale__isnull=True,
         ).aggregate(total=Sum('service__price'))['total'] or 0
         sales_month_all_paid_value = Sale.objects.filter(
             created_at__gte=month_start,
@@ -295,7 +304,9 @@ def panel_finances(request: HttpRequest):
             created_at__gte=month_start,
             created_at__lt=today_end,
         ).aggregate(total=Sum('amount'))['total'] or Decimal('0')
-        kpis['month_total_all'] = ((appts_month_all_value or 0) + (sales_month_all_paid_value or 0)) - (withdrawals_month_total or Decimal('0'))
+        
+        total_all = ((appts_month_all_value or 0) + (sales_month_all_paid_value or 0)) - (withdrawals_month_total or Decimal('0'))
+        kpis['month_total_all'] = fmt_money(total_all)
 
     # Participação do barbeiro (Mês) baseada somente em serviços concluídos
     if not is_admin:
@@ -316,7 +327,7 @@ def panel_finances(request: HttpRequest):
             ).filter(others_q).aggregate(total=Sum('service__price'))['total'] or Decimal('0')
             share_month = (others_services_month * Decimal('0.40')) + (self_services_month * Decimal('1.00'))
         # Garantir duas casas decimais
-        kpis['barber_share_month'] = share_month.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        kpis['barber_share_month'] = fmt_money(share_month)
 
     recent_sales = Sale.objects.filter(**sales_filter).order_by('-created_at')[:10]
 
@@ -334,7 +345,7 @@ def panel_finances(request: HttpRequest):
     )
 
     # Quebra por serviço baseada em agendamentos concluídos
-    appt_breakdown = breakdown_source_qs.values('service__id', 'service__title').annotate(
+    appt_breakdown = breakdown_source_qs.filter(sale__isnull=True).values('service__id', 'service__title').annotate(
         count=Count('id'),
         total_value=Sum('service__price')
     )
@@ -742,19 +753,58 @@ def finances_revenue_data(request: HttpRequest):
     is_admin = user.role == User.ADMIN
     special_full_access_usernames = {"kaue", "alafy", "alafi", "alefi"}
     is_special_finances_view = str(getattr(user, 'username', '')).lower() in special_full_access_usernames
-    month_str = request.GET.get('month') or ''
+    
+    month_str = (request.GET.get('month') or '').strip()
+    range_str = (request.GET.get('range') or '').strip().lower()
+    
     now_local = timezone.localtime()
-    try:
-        parts = (month_str or '').split('-')
-        year = int(parts[0]) if len(parts) >= 1 and parts[0] else now_local.year
-        month = int(parts[1]) if len(parts) >= 2 and parts[1] else now_local.month
-        start_local = datetime.datetime(year=year, month=month, day=1, hour=0, minute=0, second=0, microsecond=0, tzinfo=now_local.tzinfo)
-    except Exception:
-        start_local = now_local.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-    if start_local.month == 12:
-        end_local = start_local.replace(year=start_local.year + 1, month=1)
+    
+    # Determine start/end based on params
+    if month_str:
+        try:
+            parts = month_str.split('-')
+            year = int(parts[0]) if len(parts) >= 1 and parts[0] else now_local.year
+            month = int(parts[1]) if len(parts) >= 2 and parts[1] else now_local.month
+            start_local = datetime.datetime(year=year, month=month, day=1, hour=0, minute=0, second=0, microsecond=0, tzinfo=now_local.tzinfo)
+        except Exception:
+            start_local = now_local.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        
+        if start_local.month == 12:
+            end_local = start_local.replace(year=start_local.year + 1, month=1)
+        else:
+            end_local = start_local.replace(month=start_local.month + 1)
+    elif range_str:
+        if range_str in ('today', 'day'):
+            start_local = now_local.replace(hour=0, minute=0, second=0, microsecond=0)
+            end_local = now_local + datetime.timedelta(days=1)
+        elif range_str in ('7', 'week'):
+            start_local = now_local - timezone.timedelta(days=7)
+            end_local = now_local
+        elif range_str == '15':
+            start_local = now_local - timezone.timedelta(days=15)
+            end_local = now_local
+        elif range_str == '30':
+            start_local = now_local - timezone.timedelta(days=30)
+            end_local = now_local
+        elif range_str == '60':
+            start_local = now_local - timezone.timedelta(days=60)
+            end_local = now_local
+        elif range_str == '90':
+            start_local = now_local - timezone.timedelta(days=90)
+            end_local = now_local
+        else:
+            # Default fallback
+            start_local = now_local - timezone.timedelta(days=30)
+            end_local = now_local
     else:
-        end_local = start_local.replace(month=start_local.month + 1)
+        # Default behavior if nothing provided (current month, or logic before was explicit month required? 
+        # Original code defaulted to month parsing or current month if month_str was empty/invalid)
+        # We will keep default to current month if no range provided
+        start_local = now_local.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        if start_local.month == 12:
+            end_local = start_local.replace(year=start_local.year + 1, month=1)
+        else:
+            end_local = start_local.replace(month=start_local.month + 1)
 
     sales_filter = {}
     appts_filter = {}
@@ -767,6 +817,7 @@ def finances_revenue_data(request: HttpRequest):
     step = datetime.timedelta(days=1)
     points = []
     cur = start_local
+    # Safety break for loop
     while cur < end_local:
         nxt = cur + step
         utc_beg = cur.astimezone(datetime.timezone.utc)
@@ -789,19 +840,53 @@ def finances_services_breakdown_data(request: HttpRequest):
     is_admin = user.role == User.ADMIN
     special_full_access_usernames = {"kaue", "alafy", "alafi", "alefi"}
     is_special_finances_view = str(getattr(user, 'username', '')).lower() in special_full_access_usernames
-    month_str = request.GET.get('month') or ''
+    
+    month_str = (request.GET.get('month') or '').strip()
+    range_str = (request.GET.get('range') or '').strip().lower()
+    
     now_local = timezone.localtime()
-    try:
-        parts = (month_str or '').split('-')
-        year = int(parts[0]) if len(parts) >= 1 and parts[0] else now_local.year
-        month = int(parts[1]) if len(parts) >= 2 and parts[1] else now_local.month
-        start_local = datetime.datetime(year=year, month=month, day=1, hour=0, minute=0, second=0, microsecond=0, tzinfo=now_local.tzinfo)
-    except Exception:
-        start_local = now_local.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-    if start_local.month == 12:
-        end_local = start_local.replace(year=start_local.year + 1, month=1)
+    
+    if month_str:
+        try:
+            parts = month_str.split('-')
+            year = int(parts[0]) if len(parts) >= 1 and parts[0] else now_local.year
+            month = int(parts[1]) if len(parts) >= 2 and parts[1] else now_local.month
+            start_local = datetime.datetime(year=year, month=month, day=1, hour=0, minute=0, second=0, microsecond=0, tzinfo=now_local.tzinfo)
+        except Exception:
+            start_local = now_local.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        
+        if start_local.month == 12:
+            end_local = start_local.replace(year=start_local.year + 1, month=1)
+        else:
+            end_local = start_local.replace(month=start_local.month + 1)
+    elif range_str:
+        if range_str in ('today', 'day'):
+            start_local = now_local.replace(hour=0, minute=0, second=0, microsecond=0)
+            end_local = now_local + datetime.timedelta(days=1)
+        elif range_str in ('7', 'week'):
+            start_local = now_local - timezone.timedelta(days=7)
+            end_local = now_local
+        elif range_str == '15':
+            start_local = now_local - timezone.timedelta(days=15)
+            end_local = now_local
+        elif range_str == '30':
+            start_local = now_local - timezone.timedelta(days=30)
+            end_local = now_local
+        elif range_str == '60':
+            start_local = now_local - timezone.timedelta(days=60)
+            end_local = now_local
+        elif range_str == '90':
+            start_local = now_local - timezone.timedelta(days=90)
+            end_local = now_local
+        else:
+            start_local = now_local - timezone.timedelta(days=30)
+            end_local = now_local
     else:
-        end_local = start_local.replace(month=start_local.month + 1)
+        start_local = now_local.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        if start_local.month == 12:
+            end_local = start_local.replace(year=start_local.year + 1, month=1)
+        else:
+            end_local = start_local.replace(month=start_local.month + 1)
 
     appts_filter = {}
     if not (is_admin or is_special_finances_view):
@@ -839,24 +924,28 @@ def finances_withdrawals_funnel_data(request: HttpRequest):
     utc_beg = start_local.astimezone(datetime.timezone.utc)
     utc_end = end_local.astimezone(datetime.timezone.utc)
     qs = Withdrawal.objects.filter(created_at__gte=utc_beg, created_at__lt=utc_end)
-    cats = ['Fornecedores', 'Itens básicos', 'Aluguel Agua/Luz', 'Produtos Freezer', 'Outros']
-    sums = {c: Decimal('0') for c in cats}
+    sums = {}
     for w in qs:
-        note = (getattr(w, 'note', '') or '')
+        note = (getattr(w, 'note', '') or '').strip()
         reason = 'Outros'
         if note.startswith('['):
             try:
                 end_idx = note.find(']')
                 if end_idx > 1:
                     tag = note[1:end_idx].strip()
-                    reason = tag if tag in sums else 'Outros'
+                    reason = tag
             except Exception:
-                reason = 'Outros'
+                pass
+        elif note:
+            if len(note) <= 40:
+                reason = note
+        
         amt = getattr(w, 'amount', Decimal('0')) or Decimal('0')
         sums[reason] = (sums.get(reason, Decimal('0')) + amt)
-    ordered = sorted(((c, sums[c]) for c in cats), key=lambda x: x[1], reverse=True)
-    labels = [c for c, _ in ordered]
-    series = [float(v) for _, v in ordered]
+    
+    ordered = sorted(sums.items(), key=lambda x: x[1], reverse=True)
+    labels = [k for k,v in ordered]
+    series = [float(v) for k,v in ordered]
     return JsonResponse({'labels': labels, 'series': series})
 
 @login_required
@@ -1007,7 +1096,62 @@ def finances_clients_top_data(request: HttpRequest):
     is_admin = user.role == User.ADMIN
     special_full_access_usernames = {"kaue", "alafy", "alafi", "alefi"}
     is_special_finances_view = str(getattr(user, 'username', '')).lower() in special_full_access_usernames
+    
+    month_str = (request.GET.get('month') or '').strip()
+    range_str = (request.GET.get('range') or '').strip().lower()
+    
+    now_local = timezone.localtime()
+    start_local = None
+    end_local = None
+
+    if month_str:
+        try:
+            parts = month_str.split('-')
+            year = int(parts[0]) if len(parts) >= 1 and parts[0] else now_local.year
+            month = int(parts[1]) if len(parts) >= 2 and parts[1] else now_local.month
+            start_local = datetime.datetime(year=year, month=month, day=1, hour=0, minute=0, second=0, microsecond=0, tzinfo=now_local.tzinfo)
+        except Exception:
+            pass
+        
+        if start_local:
+            if start_local.month == 12:
+                end_local = start_local.replace(year=start_local.year + 1, month=1)
+            else:
+                end_local = start_local.replace(month=start_local.month + 1)
+    elif range_str:
+        if range_str in ('today', 'day'):
+            start_local = now_local.replace(hour=0, minute=0, second=0, microsecond=0)
+            end_local = now_local + datetime.timedelta(days=1)
+        elif range_str in ('7', 'week'):
+            start_local = now_local - timezone.timedelta(days=7)
+            end_local = now_local
+        elif range_str == '15':
+            start_local = now_local - timezone.timedelta(days=15)
+            end_local = now_local
+        elif range_str == '30':
+            start_local = now_local - timezone.timedelta(days=30)
+            end_local = now_local
+        elif range_str == '60':
+            start_local = now_local - timezone.timedelta(days=60)
+            end_local = now_local
+        elif range_str == '90':
+            start_local = now_local - timezone.timedelta(days=90)
+            end_local = now_local
+
+    # If no filter is applied, defaults to ALL time (original behavior)
+    # BUT the user asked to add the filter, so usually we want to respect the filter if provided.
+    # If no filter provided, maybe we should default to '30 days' or 'all time'?
+    # The original code did `Appointment.objects.all()`.
+    # Let's keep it as "All Time" if no filter is provided, to preserve original behavior when page loads initially if we don't change the default JS param.
+    # However, I will change JS to send a default.
+    
     qs = Appointment.objects.all().order_by('start_datetime')
+    
+    if start_local and end_local:
+        utc_beg = start_local.astimezone(datetime.timezone.utc)
+        utc_end = end_local.astimezone(datetime.timezone.utc)
+        qs = qs.filter(start_datetime__gte=utc_beg, start_datetime__lt=utc_end)
+
     if not (is_admin or is_special_finances_view):
         qs = qs.filter(barber=user)
     clients = {}
@@ -1015,12 +1159,18 @@ def finances_clients_top_data(request: HttpRequest):
         phone = ''.join(ch for ch in (a.client_phone or '') if ch.isdigit())
         if not phone:
             continue
-        entry = clients.get(phone) or { 'name': a.client_name or '', 'count_done': 0 }
-        if not entry['name']:
-            entry['name'] = a.client_name or entry['name']
+
+        name_raw = (a.client_name or '').strip()
+        key = phone
+        
+        entry = clients.get(key) or { 'name': name_raw, 'count_done': 0 }
+        
+        if name_raw:
+            entry['name'] = name_raw
+            
         if a.status == Appointment.STATUS_DONE:
             entry['count_done'] = int(entry['count_done']) + 1
-        clients[phone] = entry
+        clients[key] = entry
     items = [ (v['name'] or 'Cliente', int(v['count_done'] or 0)) for v in clients.values() if (int(v.get('count_done', 0)) > 0) ]
     items.sort(key=lambda x: x[1], reverse=True)
     top = items[:20]
@@ -1032,14 +1182,58 @@ def finances_occupancy_buckets_data(request: HttpRequest):
     is_admin = user.role == User.ADMIN
     special_full_access_usernames = {"kaue", "alafy", "alafi", "alefi"}
     is_special_finances_view = str(getattr(user, 'username', '')).lower() in special_full_access_usernames
+    
+    month_str = (request.GET.get('month') or '').strip()
+    range_str = (request.GET.get('range') or '').strip().lower()
+    
     now_local = timezone.localtime()
-    start_local = now_local - timezone.timedelta(days=30)
+    start_local = None
+    end_local = None
+
+    if month_str:
+        try:
+            parts = month_str.split('-')
+            year = int(parts[0]) if len(parts) >= 1 and parts[0] else now_local.year
+            month = int(parts[1]) if len(parts) >= 2 and parts[1] else now_local.month
+            start_local = datetime.datetime(year=year, month=month, day=1, hour=0, minute=0, second=0, microsecond=0, tzinfo=now_local.tzinfo)
+        except Exception:
+            pass
+        
+        if start_local:
+            if start_local.month == 12:
+                end_local = start_local.replace(year=start_local.year + 1, month=1)
+            else:
+                end_local = start_local.replace(month=start_local.month + 1)
+    elif range_str:
+        if range_str in ('today', 'day'):
+            start_local = now_local.replace(hour=0, minute=0, second=0, microsecond=0)
+            end_local = now_local + datetime.timedelta(days=1)
+        elif range_str in ('7', 'week'):
+            start_local = now_local - timezone.timedelta(days=7)
+            end_local = now_local
+        elif range_str == '15':
+            start_local = now_local - timezone.timedelta(days=15)
+            end_local = now_local
+        elif range_str == '30':
+            start_local = now_local - timezone.timedelta(days=30)
+            end_local = now_local
+        elif range_str == '60':
+            start_local = now_local - timezone.timedelta(days=60)
+            end_local = now_local
+        elif range_str == '90':
+            start_local = now_local - timezone.timedelta(days=90)
+            end_local = now_local
+            
+    if not start_local:
+        start_local = now_local - timezone.timedelta(days=30)
+        end_local = now_local
+
     utc_beg = start_local.astimezone(datetime.timezone.utc)
-    utc_end = now_local.astimezone(datetime.timezone.utc)
+    utc_end = end_local.astimezone(datetime.timezone.utc)
+
     appts_filter = { 'status': Appointment.STATUS_DONE, 'start_datetime__gte': utc_beg, 'start_datetime__lt': utc_end }
     if not (is_admin or is_special_finances_view):
         appts_filter['barber'] = user
-    appts_filter['service__title__icontains'] = 'corte'
     qs = Appointment.objects.filter(**appts_filter).select_related('service')
     buckets = [(8,10),(10,12),(12,14),(14,16),(16,18),(18,20)]
     counts = { f"{str(a).zfill(2)}–{str(b).zfill(2)}": 0 for a,b in buckets }
