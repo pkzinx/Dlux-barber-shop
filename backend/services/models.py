@@ -7,6 +7,7 @@ class Service(models.Model):
     duration_minutes = models.PositiveIntegerField(default=30)
     active = models.BooleanField(default=True)
     order = models.PositiveIntegerField(default=0)
+    description = models.TextField(blank=True, default="")
 
     class Meta:
         ordering = ['order']

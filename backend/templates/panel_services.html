@@ -86,18 +86,24 @@
     background: #2c2c30;
     border: 1px dashed #c59d5f;
   }
+  .featured-card { border-color: #c59d5f !important; background: #18181b; }
+  .featured-hint { font-size: 0.85rem; color: #c59d5f; }
 </style>
 
 <div class="d-flex flex-column gap-3" id="servicesList">
   {% for service in services %}
-  <div class="card card-panel shadow-sm border-secondary">
+  <div class="card card-panel shadow-sm {% if service.title|lower == 'barba' or service.title|lower == 'corte' or service.title|lower == 'corte de cabelo' or service.title|lower == 'corte + barba' or service.title|lower == 'corte e barba' %}border-warning featured-card{% else %}border-secondary{% endif %}">
     <div class="card-header service-card-header d-flex align-items-center justify-content-between p-3" 
          data-bs-toggle="collapse" data-bs-target="#collapse{{ service.id }}" aria-expanded="false">
       <div class="d-flex align-items-center gap-3">
         <span class="drag-handle text-secondary pe-2" style="cursor: grab; font-size: 1.2rem;" aria-label="Arrastar para reordenar">
           <i class="bi bi-grip-vertical"></i>
         </span>
+        {% if service.title|lower == 'corte' or service.title|lower == 'corte de cabelo' %}
+        <h5 class="mb-0 text-white">Corte de Cabelo</h5>
+        {% else %}
         <h5 class="mb-0 text-white">{{ service.title }}</h5>
+        {% endif %}
         <span class="badge {% if service.active %}badge-active{% else %}badge-inactive{% endif %} rounded-pill">
           {% if service.active %}Ativo{% else %}Inativo{% endif %}
         </span>
@@ -113,7 +119,10 @@
           <div class="row g-3">
             <div class="col-md-6">
               <label class="form-label">Nome do Serviço</label>
-              <input type="text" class="form-control panel-input" name="title" value="{{ service.title }}" required>
+              <input type="text" class="form-control panel-input" name="title" value="{{ service.title }}" required {% if service.title|lower == 'barba' or service.title|lower == 'corte' or service.title|lower == 'corte de cabelo' or service.title|lower == 'corte + barba' or service.title|lower == 'corte e barba' %}readonly{% endif %}>
+              {% if service.title|lower == 'barba' or service.title|lower == 'corte' or service.title|lower == 'corte de cabelo' or service.title|lower == 'corte + barba' or service.title|lower == 'corte e barba' %}
+              <small class="featured-hint">Nome fixo — editar apenas descrição, preço e duração</small>
+              {% endif %}
             </div>
             <div class="col-md-3">
               <label class="form-label">Preço (R$)</label>
@@ -123,6 +132,13 @@
               <label class="form-label">Duração (min)</label>
               <input type="number" class="form-control panel-input" name="duration_minutes" value="{{ service.duration_minutes }}" required>
             </div>
+
+            {% if service.title|lower == 'barba' or service.title|lower == 'corte' or service.title|lower == 'corte de cabelo' or service.title|lower == 'corte + barba' or service.title|lower == 'corte e barba' %}
+            <div class="col-12">
+              <label class="form-label">Descrição (exibida nos cards principais)</label>
+              <textarea class="form-control panel-input" name="description" rows="3" placeholder="Descreva este serviço">{% if service.description %}{{ service.description }}{% else %}{% if service.title|lower == 'corte' or service.title|lower == 'corte de cabelo' %}Realizado em qualquer tecnica de corte de cabelo, incluindo tesouras.{% elif service.title|lower == 'barba' %}Aparar o volume ou cortá-la, manutenção do desenho, da hidratação e esfoliação.{% elif service.title|lower == 'corte + barba' or service.title|lower == 'corte e barba' or service.title|lower == 'corte & barba' %}Visual completo: corte preciso e barba tratada com hidratação e acabamento de respeito.{% endif %}{% endif %}</textarea>
+            </div>
+            {% endif %}
             
             <div class="col-12">
               <div class="form-check form-switch">
@@ -182,6 +198,30 @@
     }
   };
 
+  function parsePriceInput(input){
+    // Preferir o valor exibido (mascarado), que sempre existe para o usuário
+    var str = (input && input.value) || '';
+    if (!str) {
+      try {
+        var inst = input && (input.imask || input.maskRef);
+        str = (inst && (inst.typedValue || inst.unmaskedValue || inst.value)) || '';
+      } catch(e) { str = ''; }
+    }
+    str = String(str)
+      .replace(/R\$\s*/i, '')
+      .replace(/\./g, '')
+      .replace(',', '.')
+      .trim();
+    // Sanitizar: manter apenas dígitos e um ponto decimal
+    var cleaned = str.replace(/[^0-9.]/g,'');
+    var parts = cleaned.split('.');
+    if (parts.length > 2) {
+      cleaned = parts[0] + '.' + parts.slice(1).join('');
+    }
+    var num = parseFloat(cleaned);
+    return num;
+  }
+
   function showToast(message, type = 'success') {
     const toastContainer = document.getElementById('toastContainer');
     if (!toastContainer) return;
@@ -218,76 +258,79 @@
     const originalBtnText = submitBtn.innerHTML;
     submitBtn.disabled = true;
     submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Salvando...';
-
-    const id = form.dataset.id;
-    const isCreate = !id;
-    
-    const title = form.querySelector('[name="title"]').value;
-    const priceInput = form.querySelector('[name="price"]');
-    const duration = form.querySelector('[name="duration_minutes"]').value;
-    let active = true;
-    const activeInput = form.querySelector('[name="active"]');
-    if (activeInput) active = activeInput.checked;
-
-    const price = parseFloat(priceInput.imask.unmaskedValue);
-    
-    if (isNaN(price)) {
+    try{
+      const id = form.dataset.id;
+      const isCreate = !id;
+      const title = form.querySelector('[name="title"]').value;
+      const priceInput = form.querySelector('[name="price"]');
+      const duration = form.querySelector('[name="duration_minutes"]').value;
+      let active = true;
+      const activeInput = form.querySelector('[name="active"]');
+      if (activeInput) active = activeInput.checked;
+      const price = parsePriceInput(priceInput);
+      if (isNaN(price)) {
         showToast('O preço inserido é inválido.', 'danger');
         submitBtn.disabled = false;
         submitBtn.innerHTML = originalBtnText;
         return;
-    }
-
-    const payload = {
-      title: title.trim(),
-      price: price,
-      duration_minutes: parseInt(duration, 10),
-      active: active
-    };
-
-    const url = isCreate ? '/api/services/' : '/api/services/' + id + '/';
-    const method = isCreate ? 'POST' : 'PATCH';
-
-    fetch(url, {
-      method: method,
-      headers: {
-        'Content-Type': 'application/json',
-        'X-CSRFToken': csrftoken()
-      },
-      body: JSON.stringify(payload)
-    })
-    .then(r => r.json().then(d => ({ ok: r.ok, data: d })))
-    .then(res => {
-      if (res.ok) {
-        const message = isCreate ? 'Serviço criado com sucesso!' : 'Serviço atualizado com sucesso!';
-        showToast(message, 'success');
-        if (isCreate) {
-          const newServiceCard = createServiceCard(res.data);
-          const servicesList = document.getElementById('servicesList');
-          servicesList.prepend(newServiceCard);
-          form.reset();
-          form.querySelector('[name="price"]').imask.value = '';
-          bootstrap.Collapse.getOrCreateInstance(document.getElementById('collapseCreate')).hide();
-        } else {
-          updateServiceCard(res.data);
-          const collapseElement = document.getElementById('collapse' + id);
-          if (collapseElement) {
-            bootstrap.Collapse.getOrCreateInstance(collapseElement).hide();
-          }
-        }
-      } else {
-        const errorMsg = Object.values(res.data).flat().join(' ');
-        showToast(`Erro ao salvar: ${errorMsg}`, 'danger');
       }
-    })
-    .catch(err => {
-      showToast('Erro de conexão. Verifique sua internet e tente novamente.', 'danger');
-      console.error(err);
-    })
-    .finally(() => {
+      const payload = {
+        title: title.trim(),
+        price: price,
+        duration_minutes: parseInt(duration, 10),
+        active: active
+      };
+      const descEl = form.querySelector('[name="description"]');
+      if (descEl) { payload.description = descEl.value; }
+      const url = isCreate ? '/api/services/' : '/api/services/' + id + '/';
+      const method = isCreate ? 'POST' : 'PATCH';
+      fetch(url, {
+        method: method,
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': csrftoken()
+        },
+        body: JSON.stringify(payload)
+      })
+      .then(r => r.json().then(d => ({ ok: r.ok, data: d })))
+      .then(res => {
+        if (res.ok) {
+          const message = isCreate ? 'Serviço criado com sucesso!' : 'Serviço atualizado com sucesso!';
+          showToast(message, 'success');
+          if (isCreate) {
+            const newServiceCard = createServiceCard(res.data);
+            const servicesList = document.getElementById('servicesList');
+            servicesList.prepend(newServiceCard);
+            form.reset();
+            var pi = form.querySelector('[name="price"]');
+            var m = pi && (pi.imask || pi.maskRef);
+            if (m) { m.value = ''; } else if (pi) { pi.value = ''; }
+            bootstrap.Collapse.getOrCreateInstance(document.getElementById('collapseCreate')).hide();
+          } else {
+            updateServiceCard(res.data);
+            const collapseElement = document.getElementById('collapse' + id);
+            if (collapseElement) {
+              bootstrap.Collapse.getOrCreateInstance(collapseElement).hide();
+            }
+          }
+        } else {
+          const errorMsg = Object.values(res.data).flat().join(' ');
+          showToast(`Erro ao salvar: ${errorMsg}`, 'danger');
+        }
+      })
+      .catch(err => {
+        showToast('Erro de conexão. Verifique sua internet e tente novamente.', 'danger');
+        console.error(err);
+      })
+      .finally(() => {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalBtnText;
+      });
+    }catch(e){
+      showToast('Erro ao processar o formulário.', 'danger');
       submitBtn.disabled = false;
       submitBtn.innerHTML = originalBtnText;
-    });
+    }
   }
 
   function deleteService(btn) {
@@ -314,7 +357,25 @@
           if (card) card.remove();
           showToast('Serviço excluído com sucesso.', 'success');
         } else {
-          showToast('Erro ao excluir o serviço.', 'danger');
+          // Fallback: desativar serviço quando exclusão for bloqueada por dependências
+          fetch('/api/services/' + id + '/', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrftoken() },
+            body: JSON.stringify({ active: false })
+          })
+          .then(pr => pr.json().then(d => ({ ok: pr.ok, data: d })))
+          .then(res => {
+            if (res.ok) {
+              if (card) card.remove();
+              showToast('Serviço possui agendamentos vinculados. Desativado e removido da listagem pública.', 'success');
+            } else {
+              showToast('Erro ao excluir/desativar o serviço.', 'danger');
+            }
+          })
+          .catch(err => {
+            showToast('Erro de conexão ao desativar.', 'danger');
+            console.error(err);
+          });
         }
       })
       .catch(err => {
@@ -337,7 +398,8 @@
     const card = document.querySelector(`[data-id="${service.id}"]`).closest('.card-panel');
     if (!card) return;
 
-    card.querySelector('h5').textContent = service.title;
+    var t = String(service.title || '').toLowerCase();
+    card.querySelector('h5').textContent = (t === 'corte' || t === 'corte de cabelo') ? 'Corte de Cabelo' : service.title;
     const badge = card.querySelector('.badge');
     badge.textContent = service.active ? 'Ativo' : 'Inativo';
     badge.className = `badge rounded-pill ${service.active ? 'badge-active' : 'badge-inactive'}`;
@@ -351,19 +413,21 @@
     if (form) {
       form.querySelector('[name="title"]').value = service.title;
       const priceInput = form.querySelector('[name="price"]');
-      if (priceInput.imask) {
-        priceInput.imask.typedValue = service.price;
-      } else {
-        priceInput.value = parseFloat(service.price).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
-      }
+      var m = priceInput && (priceInput.imask || priceInput.maskRef);
+      if (m && typeof m.typedValue !== 'undefined') { m.typedValue = service.price; }
+      else { priceInput.value = parseFloat(service.price).toLocaleString('pt-BR', { minimumFractionDigits: 2 }); }
       form.querySelector('[name="duration_minutes"]').value = service.duration_minutes;
       form.querySelector('[name="active"]').checked = service.active;
+      const descInput = form.querySelector('[name="description"]');
+      if (descInput) { descInput.value = service.description || ''; }
     }
   }
 
   function createServiceCard(service) {
     const card = document.createElement('div');
-    card.className = 'card card-panel shadow-sm border-secondary';
+    var t = String(service.title || '').toLowerCase();
+    var isFeatured = (t === 'barba' || t === 'corte' || t === 'corte de cabelo' || t === 'corte + barba' || t === 'corte e barba' || t === 'corte & barba');
+    card.className = 'card card-panel shadow-sm ' + (isFeatured ? 'border-warning featured-card' : 'border-secondary');
     
     const priceFormatted = parseFloat(service.price).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -374,7 +438,7 @@
           <span class="drag-handle text-secondary pe-2" style="cursor: grab; font-size: 1.2rem;" aria-label="Arrastar para reordenar">
             <i class="bi bi-grip-vertical"></i>
           </span>
-          <h5 class="mb-0 text-white">${service.title}</h5>
+          <h5 class="mb-0 text-white">${(t === 'corte' || t === 'corte de cabelo') ? 'Corte de Cabelo' : service.title}</h5>
           <span class="badge ${service.active ? 'badge-active' : 'badge-inactive'} rounded-pill">
             ${service.active ? 'Ativo' : 'Inativo'}
           </span>
@@ -389,7 +453,8 @@
             <div class="row g-3">
               <div class="col-md-6">
                 <label class="form-label">Nome do Serviço</label>
-                <input type="text" class="form-control panel-input" name="title" value="${service.title}" required>
+                <input type="text" class="form-control panel-input" name="title" value="${service.title}" required ${isFeatured ? 'readonly' : ''}>
+                ${isFeatured ? '<small class="featured-hint">Nome fixo — editar apenas descrição, preço e duração</small>' : ''}
               </div>
               <div class="col-md-3">
                 <label class="form-label">Preço (R$)</label>
@@ -399,6 +464,10 @@
                 <label class="form-label">Duração (min)</label>
                 <input type="number" class="form-control panel-input" name="duration_minutes" value="${service.duration_minutes}" required>
               </div>
+              ${isFeatured ? `<div class="col-12">
+                <label class="form-label">Descrição (exibida nos cards principais)</label>
+                <textarea class="form-control panel-input" name="description" rows="3" placeholder="Descreva este serviço">${service.description || ''}</textarea>
+              </div>` : ''}
               <div class="col-12">
                 <div class="form-check form-switch">
                   <input class="form-check-input" type="checkbox" name="active" id="active${service.id}" ${service.active ? 'checked' : ''}>

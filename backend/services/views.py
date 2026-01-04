@@ -40,7 +40,7 @@ def trigger_revalidation():
         url = settings.NEXTJS_REVALIDATE_URL
         headers = {'x-revalidate-secret': settings.NEXTJS_REVALIDATE_SECRET}
         payload = {'path': '/'}  # Revalidar a página inicial/serviços
-        requests.post(url, headers=headers, json=payload)
+        requests.post(url, headers=headers, json=payload, timeout=1.5)
     except Exception as e:
         # Logar o erro, mas não quebrar a aplicação
         print(f"Erro ao acionar revalidação do frontend: {e}")
@@ -137,9 +137,10 @@ def panel_services(request: HttpRequest):
                         title=title,
                         price=price,
                         duration_minutes=duration_int,
-                        active=True,  # Sempre criar como ativo para aparecer no site
+                        active=True,
                     )
                     messages.success(request, f"Serviço '{title}' criado e já visível no site.")
+                    trigger_revalidation()
                 except (ValueError, TypeError) as e:
                     messages.error(request, f"Erro ao criar serviço: duração inválida.")
             return redirect("panel_services")
@@ -160,6 +161,7 @@ def panel_services(request: HttpRequest):
             service.active = request.POST.get("active") == "on"
             service.save()
             messages.success(request, f"Serviço '{service.title}' atualizado.")
+            trigger_revalidation()
             return redirect("panel_services")
 
     services = Service.objects.all().order_by("title")

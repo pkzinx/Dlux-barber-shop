@@ -5,6 +5,7 @@ export type ServiceItem = {
   title: string;
   duration: string;
   price: string;
+  description?: string;
 };
 
 export type ServicesModalProps = {

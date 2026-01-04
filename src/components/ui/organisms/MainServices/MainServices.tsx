@@ -77,6 +77,7 @@ export const MainServices = ({ items }: MainServicesProps) => {
         price: s.price
           ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(s.price))
           : '',
+        description: s.description || '',
       }));
       setServicesList(mapped);
     } catch (err) {
@@ -87,6 +88,7 @@ export const MainServices = ({ items }: MainServicesProps) => {
           title: info.title,
           duration: '',
           price: info.price,
+          description: info.description,
         }))
       );
       setServicesList(fallback);
@@ -94,6 +96,26 @@ export const MainServices = ({ items }: MainServicesProps) => {
       setLoadingServices(false);
     }
   };
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      fetchServices();
+    }, 8000);
+    return () => clearInterval(id);
+  }, []);
+
+  useEffect(() => {
+    const onVis = () => {
+      if (document.visibilityState === 'visible') fetchServices();
+    };
+    const onFocus = () => fetchServices();
+    window.addEventListener('visibilitychange', onVis);
+    window.addEventListener('focus', onFocus);
+    return () => {
+      window.removeEventListener('visibilitychange', onVis);
+      window.removeEventListener('focus', onFocus);
+    };
+  }, []);
 
   // Buscar serviços ao montar o componente
   useEffect(() => {
@@ -118,21 +140,39 @@ export const MainServices = ({ items }: MainServicesProps) => {
 
         <MediaMatch $greaterThan="large">
           <S.WrapperServicesBox>
-            {items.map(({ infos }, index) => (
-              <ServiceBox key={`Service - ${index}`} infos={infos} onSchedule={openSchedule} />
-            ))}
+            {(() => {
+              const lower = (s: string) => (s || '').toLowerCase();
+              const findBy = (fn: (t: string) => boolean) => servicesList.find(s => fn(lower(s.title)));
+              const hair = findBy(t => t === 'corte de cabelo' || t === 'corte');
+              const beard = findBy(t => t === 'barba');
+              const combo = findBy(t => t === 'corte + barba' || t === 'corte e barba' || t === 'corte & barba');
+              const featured = [hair, beard, combo].filter(Boolean) as ServiceItem[];
+              const display = featured.length ? featured.map(s => ({ infos: [{ title: s.title === 'corte' ? 'Corte de Cabelo' : s.title, price: s.price, description: s.description || '' }] })) : items;
+              return display.map(({ infos }, index) => (
+                <ServiceBox key={`Service - ${index}`} infos={infos} onSchedule={openSchedule} />
+              ));
+            })()}
           </S.WrapperServicesBox>
         </MediaMatch>
 
         <MediaMatch $lessThan="large">
           <Slider settings={settings}>
-            {items.map(({ infos }, index) => (
-              <ServiceBox
-                key={`Service in the slider - ${index}`}
-                infos={infos}
-                onSchedule={openSchedule}
-              />
-            ))}
+            {(() => {
+              const lower = (s: string) => (s || '').toLowerCase();
+              const findBy = (fn: (t: string) => boolean) => servicesList.find(s => fn(lower(s.title)));
+              const hair = findBy(t => t === 'corte de cabelo' || t === 'corte');
+              const beard = findBy(t => t === 'barba');
+              const combo = findBy(t => t === 'corte + barba' || t === 'corte e barba' || t === 'corte & barba');
+              const featured = [hair, beard, combo].filter(Boolean) as ServiceItem[];
+              const display = featured.length ? featured.map(s => ({ infos: [{ title: s.title === 'corte' ? 'Corte de Cabelo' : s.title, price: s.price, description: s.description || '' }] })) : items;
+              return display.map(({ infos }, index) => (
+                <ServiceBox
+                  key={`Service in the slider - ${index}`}
+                  infos={infos}
+                  onSchedule={openSchedule}
+                />
+              ));
+            })()}
           </Slider>
           <S.SwipeHint>
             Rolar para ver os outros serviços

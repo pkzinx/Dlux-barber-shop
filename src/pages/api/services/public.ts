@@ -15,10 +15,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         throw new Error(`Backend returned ${r.status}`)
     }
     const data = await r.json()
+    res.setHeader('Cache-Control', 'no-store, max-age=0')
     return res.status(200).json(data)
   } catch (e: any) {
     console.error('API Proxy Error:', e)
     return res.status(500).json({ detail: 'Proxy error', error: e?.message })
   }
 }
-
