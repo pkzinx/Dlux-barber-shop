@@ -4,8 +4,8 @@ from .models import Sale, Withdrawal
 
 @admin.register(Sale)
 class SaleAdmin(admin.ModelAdmin):
-    list_display = ('id', 'barber', 'amount', 'payment_method', 'status', 'created_at')
-    list_filter = ('payment_method', 'status', 'barber')
+    list_display = ('id', 'barber', 'amount', 'status', 'created_at')
+    list_filter = ('status', 'barber')
     search_fields = ('barber__username',)
 
 @admin.register(Withdrawal)

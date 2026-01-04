@@ -349,38 +349,15 @@ def panel_finances(request: HttpRequest):
         count=Count('id'),
         total_value=Sum('service__price')
     )
-    # Incluir vendas com serviço como novos serviços feitos (mês)
-    sales_breakdown = Sale.objects.filter(
-        created_at__gte=month_start,
-        created_at__lt=today_end,
-        status='paid',
-        **sales_filter
-    ).filter(service__isnull=False).values('service__id', 'service__title').annotate(
-        count=Count('id'),
-        total_value=Sum('amount')
-    )
-    # Merge por service__id
-    combined_map = {}
-    for r in appt_breakdown:
-        sid = r['service__id']
-        combined_map[sid] = {
-            'service__id': sid,
+    # Apenas serviços concluídos (vendas são produtos avulsos, não entram neste breakdown)
+    breakdown_by_service = sorted([
+        {
+            'service__id': r['service__id'],
             'service__title': r['service__title'],
             'count': r['count'],
             'total_value': r['total_value'] or 0,
-        }
-    for s in sales_breakdown:
-        sid = s['service__id']
-        entry = combined_map.get(sid, {
-            'service__id': sid,
-            'service__title': s['service__title'],
-            'count': 0,
-            'total_value': 0,
-        })
-        entry['count'] += s['count']
-        entry['total_value'] += (s['total_value'] or 0)
-        combined_map[sid] = entry
-    breakdown_by_service = sorted(combined_map.values(), key=lambda x: x['total_value'], reverse=True)
+        } for r in appt_breakdown
+    ], key=lambda x: x['total_value'], reverse=True)
     breakdown_by_barber = appts_month_done.exclude(barber__username__iexact='teste').exclude(barber__display_name__iexact='Teste Barber').values('barber__id', 'barber__display_name', 'barber__username').annotate(
         count=Count('id'),
         total_value=Sum('service__price')
@@ -1537,11 +1514,12 @@ def panel_history(request: HttpRequest):
     if not special_view:
         return redirect('painel_index')
 
-    # Mostrar retiradas, bloqueios, edições de agendamentos e vendas registradas
     from django.db.models import Q
     logs_qs = AuditLog.objects.filter(
-        Q(target_type__in=['Withdrawal', 'TimeBlock', 'Sale']) |
-        Q(target_type='Appointment', action='update')
+        Q(target_type='Appointment', action='update', payload__change_type__in=['cancel','done','reschedule','barber_change','service_change']) |
+        Q(target_type='TimeBlock') |
+        Q(target_type='Withdrawal', action='create') |
+        Q(target_type='Sale', action='create')
     ).select_related('actor').order_by('-timestamp')
 
     # Paginação dos logs, semelhante aos agendamentos
@@ -1549,7 +1527,109 @@ def panel_history(request: HttpRequest):
     paginator = Paginator(logs_qs, 15)
     page_obj = paginator.get_page(page_number)
 
+    def _actor_label(log):
+        a = getattr(log, 'actor', None)
+        if a:
+            return (getattr(a, 'display_name', None) or getattr(a, 'username', ''))
+        return '-'
+
+    def _barber_label(payload):
+        return (payload.get('barber_label') or '')
+
+    def _fmt_dt(dt_str):
+        try:
+            from django.utils.dateparse import parse_datetime
+            dt = parse_datetime(dt_str)
+            from django.utils import timezone
+            if dt:
+                return timezone.localtime(dt).strftime('%d/%m %H:%M')
+        except Exception:
+            pass
+        return ''
+
+    logs_display = []
+    for log in page_obj.object_list:
+        p = log.payload or {}
+        t = log.target_type
+        type_label = ''
+        summary = ''
+        subject = _barber_label(p)
+        actor = _actor_label(log)
+        if t == 'Appointment':
+            ct = p.get('change_type')
+            cn = p.get('client_name') or ''
+            if ct == 'cancel':
+                type_label = 'Cancelamento'
+                summary = f"Cancelado: {cn}"
+            elif ct == 'done':
+                type_label = 'Concluído'
+                summary = f"Concluído: {cn}"
+            elif ct == 'reschedule':
+                type_label = 'Remarcação'
+                old = _fmt_dt(p.get('old_start') or '')
+                new = _fmt_dt(p.get('start') or '')
+                summary = f"Remarcado: {cn} de {old} para {new}"
+            elif ct == 'barber_change':
+                type_label = 'Mudança de barbeiro'
+                oldb = p.get('old_barber_label') or ''
+                newb = p.get('barber_label') or ''
+                summary = f"{cn}: {oldb} → {newb}"
+            elif ct == 'service_change':
+                type_label = 'Mudança de serviço'
+                olds = p.get('old_service_title') or ''
+                news = p.get('service_title') or ''
+                summary = f"{cn}: {olds} → {news}"
+            else:
+                type_label = 'Edição'
+                summary = f"Edição: {cn}"
+        elif t == 'TimeBlock':
+            if log.action == 'delete':
+                type_label = 'Desbloqueio'
+                tp = p.get('type') or ''
+                date_disp = p.get('date_display')
+                cnt = p.get('deleted_count')
+                base = 'dia inteiro' if tp == 'unblock_day' else 'intervalo'
+                details = []
+                if date_disp:
+                    details.append(f"({date_disp})")
+                if cnt:
+                    details.append(f"— {cnt} removidos")
+                summary = f"Desbloqueio: {base} {' '.join(details)}".strip()
+            else:
+                type_label = 'Bloqueio'
+                if p.get('full_day'):
+                    date_disp = p.get('date_display')
+                    reason = p.get('reason') or ''
+                    part = f"dia inteiro {(f'({date_disp})' if date_disp else '')}".strip()
+                    summary = f"Bloqueio: {part} — {reason}".strip()
+                else:
+                    start_label = p.get('start_label') or p.get('start_time') or ''
+                    end_label = p.get('end_label') or p.get('end_time') or ''
+                    reason = p.get('reason') or ''
+                    summary = f"Bloqueio: {start_label}–{end_label} — {reason}".strip()
+        elif t == 'Withdrawal':
+            type_label = 'Retirada'
+            amt = p.get('amount') or ''
+            note = p.get('note') or ''
+            summary = f"Retirada: R$ {amt} — {note}".strip()
+        elif t == 'Sale':
+            type_label = 'Venda'
+            amt = p.get('amount') or ''
+            summary = f"Venda registrada: R$ {amt}".strip()
+        else:
+            type_label = t
+            summary = str(p) if p else ''
+
+        logs_display.append({
+            'timestamp': log.timestamp,
+            'type': type_label,
+            'actor': actor,
+            'barber': subject or '-',
+            'summary': summary,
+        })
+
     return render(request, 'panel_history.html', {
         'logs_page': page_obj,
         'paginator': paginator,
+        'logs_display': logs_display,
     })

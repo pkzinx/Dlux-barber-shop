@@ -3,7 +3,6 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
   <h3 class="mb-0 d-none d-md-block">Histórico de ações</h3>
-  <div class="muted">Somente Kaue e Alafy</div>
   </div>
 
 <div class="card card-panel">
@@ -14,61 +13,23 @@
         <tr>
           <th style="width: 160px;">Data/Hora</th>
           <th style="width: 140px;">Tipo</th>
+          <th style="width: 160px;">Autor</th>
           <th>Barbeiro</th>
           <th>Resumo</th>
         </tr>
       </thead>
       <tbody>
-        {% for log in logs_page %}
+        {% for log in logs_display %}
         <tr>
           <td>{{ log.timestamp|date:'d/m/Y H:i' }}</td>
-          <td>
-            {% if log.target_type == 'Appointment' %}
-              {% if log.payload.status == 'cancelled' %}Cancelamento{% else %}Edição{% endif %}
-            {% elif log.target_type == 'TimeBlock' %}
-              {% if log.action == 'delete' %}Desbloqueio{% else %}Bloqueio{% endif %}
-            {% elif log.target_type == 'Withdrawal' %}
-              Retirada
-            {% elif log.target_type == 'Sale' %}
-              Venda
-            {% else %}
-              {{ log.target_type }}
-            {% endif %}
-          </td>
-          <td>
-            {% if log.actor %}
-              {{ log.actor.display_name|default:log.actor.username }}
-            {% elif log.payload.barber_label %}
-              {{ log.payload.barber_label }}
-            {% else %}-{% endif %}
-          </td>
-          <td>
-            {% if log.target_type == 'Appointment' %}
-              {% if log.payload.status == 'cancelled' %}
-                Edição (cancelamento): {{ log.payload.client_name }}
-              {% elif log.payload.status == 'done' %}
-                Edição: agendamento {{ log.payload.client_name }}, concluído
-              {% else %}
-                Edição: agendamento {{ log.payload.client_name }}
-              {% endif %}
-            {% elif log.target_type == 'TimeBlock' %}
-              {% if log.action == 'delete' %}
-                Desbloqueio: {% if log.payload.type == 'unblock_day' %}dia inteiro{% else %}intervalo{% endif %}{% if log.payload.date_display %} ({{ log.payload.date_display }}){% endif %}{% if log.payload.deleted_count %} — {{ log.payload.deleted_count }} removidos{% endif %}
-              {% else %}
-                Bloqueio: {% if log.payload.full_day %}dia inteiro{% if log.payload.date_display %} ({{ log.payload.date_display }}){% endif %}{% else %}{{ log.payload.start_label|default:log.payload.start_time }}–{{ log.payload.end_label|default:log.payload.end_time }}{% endif %} — {{ log.payload.reason }}
-              {% endif %}
-            {% elif log.target_type == 'Withdrawal' %}
-              Retirada: R$ {{ log.payload.amount }} — {{ log.payload.note }}
-            {% elif log.target_type == 'Sale' %}
-              Venda registrada: R$ {{ log.payload.amount }} — {{ log.payload.payment_method }}
-            {% else %}
-              {{ log.payload|default:"" }}
-            {% endif %}
-          </td>
+          <td>{{ log.type }}</td>
+          <td>{{ log.actor }}</td>
+          <td>{{ log.barber }}</td>
+          <td>{{ log.summary }}</td>
         </tr>
         {% empty %}
         <tr>
-          <td colspan="4" class="text-center muted">Sem logs recentes.</td>
+          <td colspan="5" class="text-center muted">Sem logs recentes.</td>
         </tr>
         {% endfor %}
       </tbody>

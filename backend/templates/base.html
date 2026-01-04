@@ -8,6 +8,23 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <link href="{% static 'panel.css' %}" rel="stylesheet">
+    <style>
+      :root{
+        --dlux-bg:#0f0f10; --dlux-card:#18181a; --dlux-accent:#c59d5f; --dlux-text:#eaeaea; --dlux-muted:#a3a3a3;
+        --success:#22c55e; --danger:#ef4444; --warning:#f59e0b;
+      }
+      body{ background:var(--dlux-bg); color:var(--dlux-text); }
+      .navbar-dark.bg-dark{ background-color:#121212 !important; }
+      .card-panel{ background:var(--dlux-card); border:1px solid #232325; color:var(--dlux-text); }
+      .card-panel .card-header{ border-bottom:1px solid #232325; }
+      .kpi{ font-weight:700; font-size:1.6rem; }
+      .kpi-label{ color:var(--dlux-muted); font-size:.85rem; }
+      .table-dark.table{ --bs-table-bg:#151516; --bs-table-striped-bg:#1a1a1c; --bs-table-border-color:#2a2a2d; }
+      .badge-accent{ background-color:var(--dlux-accent); }
+      .text-accent{ color:var(--dlux-accent) !important; }
+      .btn-accent{ background:var(--dlux-accent); color:#111; border:none; }
+      .btn-accent:hover{ filter:brightness(1.1); }
+    </style>
   </head>
   <body>
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark shadow-sm">
@@ -395,27 +412,15 @@
             <form id="newSaleForm">
               <input type="hidden" name="barber_id" value="{{ user.id }}">
               <div class="mb-3">
-                <label class="form-label">Serviço (opcional)</label>
-                <select class="form-select" name="service_id" id="nsService"></select>
-              </div>
-              <div class="mb-3">
-                <label class="form-label">Descrição (quando não for um serviço)</label>
-                <input type="text" class="form-control" name="description" placeholder="Ex.: Pomada, produto, etc">
+                <label class="form-label">Produto (descrição)</label>
+                <input type="text" class="form-control" name="description" placeholder="Ex.: Pomada, gel, creme" required>
               </div>
               <div class="row g-2 mb-3">
                 <div class="col-6">
                   <label class="form-label">Valor</label>
                   <input type="number" step="0.01" min="0" class="form-control" name="amount" id="nsAmount" placeholder="0,00" required>
                 </div>
-                <div class="col-6">
-                  <label class="form-label">Pagamento</label>
-                  <select class="form-select" name="payment_method" required>
-                    <option value="" disabled selected>Selecione...</option>
-                    <option value="cash">Dinheiro</option>
-                    <option value="pix">Pix</option>
-                    <option value="card">Cartão</option>
-                  </select>
-                </div>
+                <div class="col-6"></div>
               </div>
               <button type="submit" class="btn btn-accent">Salvar venda</button>
             </form>
@@ -486,39 +491,7 @@
     {% endif %}
 
     <script>
-      // Carregar serviços para nova venda e popular select com preço disponível
-      (function loadServicesForSale(){
-        const sel = document.getElementById('nsService');
-        if (!sel) return;
-        fetch('/api/services/')
-          .then(r => r.json())
-          .then(data => {
-            const results = Array.isArray(data) ? data : (data.results || []);
-            sel.innerHTML = '<option value="" selected>Nenhum (venda avulsa)</option>';
-            results.forEach(s => {
-              const opt = document.createElement('option');
-              opt.value = s.id;
-              opt.textContent = s.title + ' — R$ ' + s.price;
-              opt.dataset.price = s.price;
-              sel.appendChild(opt);
-            });
-          }).catch(() => {
-            sel.innerHTML = '<option disabled>Falha ao carregar serviços</option>';
-          });
-      })();
-
-      // Preencher automaticamente o valor ao escolher um serviço
-      (function bindServicePriceToAmount(){
-        const sel = document.getElementById('nsService');
-        const amountInput = document.getElementById('nsAmount');
-        if (!sel || !amountInput) return;
-        sel.addEventListener('change', () => {
-          const price = parseFloat(sel.options[sel.selectedIndex]?.dataset?.price || '0');
-          if (!isNaN(price) && price > 0) {
-            amountInput.value = price.toFixed(2);
-          }
-        });
-      })();
+      // Nova venda: produto avulso (descrição + valor)
 
       // Submeter nova venda
       (function bindNewSale(){
@@ -531,10 +504,8 @@
           const fd = new FormData(form);
           const payload = {
             barber: parseInt(fd.get('barber_id'), 10),
-            service: fd.get('service_id') ? parseInt(fd.get('service_id'), 10) : null,
             description: (fd.get('description') || '').toString(),
             amount: parseFloat((fd.get('amount') || '0').toString()),
-            payment_method: fd.get('payment_method'),
             status: 'paid',
           };
           try {
@@ -546,7 +517,7 @@
             if (!res.ok) throw new Error('Falha ao registrar venda');
             const data = await res.json();
             const toastContainer = document.getElementById('toastContainer');
-            const label = payload.description || (document.querySelector('#nsService option:checked')?.textContent || 'Venda');
+            const label = payload.description || 'Venda';
             const toastEl = document.createElement('div');
             toastEl.className = 'toast align-items-center text-bg-success border-0';
             toastEl.setAttribute('role', 'alert');
