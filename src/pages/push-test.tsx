@@ -32,7 +32,7 @@ export default function PushTestPage() {
     }
     setSending(true)
     try {
-      const resp = await fetch('/api/appointments/notify_test', {
+      const resp = await fetch(`/api/appointments/${appointmentId}/notify_test/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ appointmentId, title: 'Dlux Barbearia', body: 'Teste de notificação' }),

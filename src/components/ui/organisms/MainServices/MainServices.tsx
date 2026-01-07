@@ -56,7 +56,7 @@ export const MainServices = ({ items }: MainServicesProps) => {
   const fetchServices = async () => {
     setLoadingServices(true);
     try {
-      const url = `/api/services/public`;
+      const url = `/api/services/public/`;
       const res = await fetch(url, {
         method: 'GET',
         headers: {

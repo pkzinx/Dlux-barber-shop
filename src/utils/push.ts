@@ -89,7 +89,7 @@ export async function registerAppointmentPush(appointmentId: string): Promise<bo
     const reg = await registerServiceWorker()
     const token = await getFcmToken(reg || undefined)
     if (!token) return false
-    const resp = await fetch('/api/appointments/subscribe', {
+    const resp = await fetch(`/api/appointments/${appointmentId}/subscribe/`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ appointmentId, token }),

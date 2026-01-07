@@ -55,7 +55,7 @@ export const ScheduleModal = ({ isOpen, onClose, barbers, serviceTitle }: Schedu
       const endDatetime = `${end.getFullYear()}-${pad(end.getMonth() + 1)}-${pad(end.getDate())}T${pad(end.getHours())}:${pad(end.getMinutes())}:00`;
 
       // Envia via API do Next.js (proxy) para o backend
-      const resp = await fetch('/api/appointments/create', {
+      const resp = await fetch('/api/appointments/public/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -234,7 +234,7 @@ export const ScheduleModal = ({ isOpen, onClose, barbers, serviceTitle }: Schedu
         durationMinutes: String(serviceDurationMinutes),
       });
       
-      const r = await fetch(`/api/appointments/available?${params.toString()}`, {
+      const r = await fetch(`/api/appointments/available-slots/?${params.toString()}`, {
         headers: { Accept: 'application/json' },
         signal: controller.signal,
       });
