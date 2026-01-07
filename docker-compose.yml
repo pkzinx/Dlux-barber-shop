@@ -1,0 +1,100 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: dlux_postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-dlux_db}
+      POSTGRES_USER: ${POSTGRES_USER:-dlux_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dlux_password_change_in_production}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-dlux_user}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - dlux_network
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: dlux_backend
+    env_file:
+      - .env
+    environment:
+      - DEBUG=${DEBUG:-False}
+      - SECRET_KEY=${SECRET_KEY}
+      - DATABASE_URL=${DATABASE_URL:-postgresql://dlux_user:${POSTGRES_PASSWORD}@postgres:5432/dlux_db}
+      - POSTGRES_DB=${POSTGRES_DB:-dlux_db}
+      - POSTGRES_USER=${POSTGRES_USER:-dlux_user}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-dlux_password_change_in_production}
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - ALLOWED_HOSTS=${ALLOWED_HOSTS:-localhost,127.0.0.1}
+      - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-http://localhost:3000}
+    volumes:
+      - backend_static:/app/staticfiles
+      - backend_media:/app/media
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - dlux_network
+    command: >
+      sh -c "
+        python manage.py migrate --noinput &&
+        python manage.py collectstatic --noinput &&
+        gunicorn --bind 0.0.0.0:8000 --workers 3 dlux_panel.wsgi:application
+      "
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: dlux_frontend
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+    expose:
+      - "3000"
+    depends_on:
+      - backend
+    networks:
+      - dlux_network
+
+  nginx:
+    image: nginx:alpine
+    container_name: dlux_nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - backend_static:/usr/share/nginx/html/static:ro
+      - backend_media:/usr/share/nginx/html/media:ro
+    depends_on:
+      - frontend
+      - backend
+    networks:
+      - dlux_network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  backend_static:
+  backend_media:
+
+networks:
+  dlux_network:
+    driver: bridge
+

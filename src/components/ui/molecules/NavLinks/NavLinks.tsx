@@ -59,14 +59,13 @@ export const NavLinks = ({ children, names, paddingXLine }: NavLinksProps) => {
               ref={state === link ? refLink : null}
             >
               {href ? (
-                <Link href={href} passHref legacyBehavior>
-                  <S.ExternalLink
-                    aria-selected={state === link}
-                    onClick={() => setState(link)}
-                  >
-                    {nav}
-                  </S.ExternalLink>
-                </Link>
+                <S.ExternalLink
+                  href={href}
+                  aria-selected={state === link}
+                  onClick={() => setState(link)}
+                >
+                  {nav}
+                </S.ExternalLink>
               ) : (
                 <S.NavLink
                   to={link}
@@ -94,14 +93,13 @@ export const NavLinks = ({ children, names, paddingXLine }: NavLinksProps) => {
               ref={state === link ? refLink : null}
             >
               {href ? (
-                <Link href={href} passHref legacyBehavior>
-                  <S.ExternalLink
-                    aria-selected={state === link}
-                    onClick={() => setState(link)}
-                  >
-                    {nav}
-                  </S.ExternalLink>
-                </Link>
+                <S.ExternalLink
+                  href={href}
+                  aria-selected={state === link}
+                  onClick={() => setState(link)}
+                >
+                  {nav}
+                </S.ExternalLink>
               ) : (
                 <S.NavLink
                   to={link}

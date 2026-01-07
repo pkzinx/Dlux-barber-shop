@@ -8,4 +8,5 @@ module.exports = {
     // Usa o transform do SWC para styled-components (substitui Babel)
     styledComponents: true,
   },
+  output: 'standalone',
 };
