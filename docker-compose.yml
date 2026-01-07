@@ -62,11 +62,11 @@ services:
     container_name: dlux_frontend
     env_file:
       - .env
-      environment:
-        - NODE_ENV=production
-        - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:8000}
-        - BACKEND_URL=http://backend:8000
-      expose:
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+      - BACKEND_URL=http://backend:8000
+    expose:
       - "3000"
     depends_on:
       - backend
@@ -98,4 +98,3 @@ volumes:
 networks:
   dlux_network:
     driver: bridge
-

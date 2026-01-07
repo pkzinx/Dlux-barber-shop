@@ -70,7 +70,7 @@ export const ScheduleModal = ({ isOpen, onClose, barbers, serviceTitle }: Schedu
       });
       const data = await resp.json();
       if (!resp.ok) throw new Error(data?.detail || 'Falha ao agendar');
-      
+
       const apptDetails = {
         barber: barberName,
         service: serviceTitle || 'Serviço',
@@ -225,7 +225,7 @@ export const ScheduleModal = ({ isOpen, onClose, barbers, serviceTitle }: Schedu
     // Evitar fetch se os parâmetros não mudaram ou se faltar dados
     // Mas se houver um controller novo, devemos permitir a busca se for diferente
     // A verificação de igualdade deve ser cuidadosa com aborts
-    
+
     try {
       setLoadingSlots(true);
       const params = new URLSearchParams({
@@ -233,14 +233,14 @@ export const ScheduleModal = ({ isOpen, onClose, barbers, serviceTitle }: Schedu
         barberName: selectedBarberName.trim(),
         durationMinutes: String(serviceDurationMinutes),
       });
-      
+
       const r = await fetch(`/api/appointments/available-slots/?${params.toString()}`, {
         headers: { Accept: 'application/json' },
         signal: controller.signal,
       });
-      
+
       const data = await r.json();
-      
+
       if (!r.ok) {
         console.error('Erro ao buscar horários disponíveis:', data);
         setTimeOptions([]);
@@ -273,9 +273,9 @@ export const ScheduleModal = ({ isOpen, onClose, barbers, serviceTitle }: Schedu
   // Atualiza horários ao trocar serviço (pois muda a duração)
   React.useEffect(() => {
     if (date && barberName) {
-        // Debounce simples para evitar múltiplas chamadas rápidas
-        const t = setTimeout(() => fetchAvailableSlots(date, barberName), 50);
-        return () => clearTimeout(t);
+      // Debounce simples para evitar múltiplas chamadas rápidas
+      const t = setTimeout(() => fetchAvailableSlots(date, barberName), 50);
+      return () => clearTimeout(t);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [serviceDurationMinutes]);
@@ -390,47 +390,47 @@ export const ScheduleModal = ({ isOpen, onClose, barbers, serviceTitle }: Schedu
         <>
           <S.Background aria-hidden={feedbackOpen} aria-label="Overlay Modal" $isOpen={feedbackOpen} />
           <S.Modal $isOpen={feedbackOpen} aria-label="Modal Sucesso" style={{ textAlign: 'center' }}>
-             <img src="/assets/svg/icon-success.svg" alt="Sucesso" style={{ width: '8rem', height: '8rem', marginBottom: '1rem' }} />
-             <S.Title>Agendamento Realizado!</S.Title>
-             {lastAppointment && (
-               <div style={{ color: '#fff', fontSize: '1.6rem', margin: '2rem 0', lineHeight: '1.5' }}>
-                 <p><strong>Serviço:</strong> {lastAppointment.service}</p>
-                 <p><strong>Barbeiro:</strong> {lastAppointment.barber}</p>
-                 <p><strong>Data:</strong> {lastAppointment.date} às {lastAppointment.time}</p>
-               </div>
-             )}
-             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', width: '100%', maxWidth: '300px' }}>
-               {lastAppointment && (
-                 <>
-                   <Button
-                     as="a"
-                     href={`https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent('Dlux: ' + lastAppointment.service)}&dates=${lastAppointment.startIso}/${lastAppointment.endIso}&details=${encodeURIComponent('Barbeiro: ' + lastAppointment.barber)}&location=Dlux`}
-                     target="_blank"
-                     rel="noopener noreferrer"
-                     style={{ textDecoration: 'none' }}
-                   >
-                     Adicionar ao Google Agenda
-                   </Button>
-                   <Button
-                     as="a"
-                     href={`https://wa.me/?text=${encodeURIComponent(`Olá, confirmo meu agendamento na Dlux com ${lastAppointment.barber} para ${lastAppointment.service} dia ${lastAppointment.date} às ${lastAppointment.time}.`)}`}
-                     target="_blank"
-                     rel="noopener noreferrer"
-                     style={{ textDecoration: 'none', backgroundColor: '#25D366', borderColor: '#25D366' }}
-                   >
-                     Enviar confirmação no WhatsApp
-                   </Button>
-                 </>
-               )}
-               <Button as="button" type="button" onClick={() => {
-                  setFeedbackOpen(false);
-                  try {
-                    if (typeof window !== 'undefined') window.location.reload();
-                  } catch (_) {}
-                }} $buttonStyle="secondary">
-                  Fechar
-                </Button>
-             </div>
+            <img src="/assets/svg/icon-success.svg" alt="Sucesso" style={{ width: '8rem', height: '8rem', marginBottom: '1rem' }} />
+            <S.Title>Agendamento Realizado!</S.Title>
+            {lastAppointment && (
+              <div style={{ color: '#fff', fontSize: '1.6rem', margin: '2rem 0', lineHeight: '1.5' }}>
+                <p><strong>Serviço:</strong> {lastAppointment.service}</p>
+                <p><strong>Barbeiro:</strong> {lastAppointment.barber}</p>
+                <p><strong>Data:</strong> {lastAppointment.date} às {lastAppointment.time}</p>
+              </div>
+            )}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', width: '100%', maxWidth: '300px' }}>
+              {lastAppointment && (
+                <>
+                  <Button
+                    as="a"
+                    href={`https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent('Dlux: ' + lastAppointment.service)}&dates=${lastAppointment.startIso}/${lastAppointment.endIso}&details=${encodeURIComponent('Barbeiro: ' + lastAppointment.barber)}&location=Dlux`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ textDecoration: 'none' }}
+                  >
+                    Adicionar ao Google Agenda
+                  </Button>
+                  <Button
+                    as="a"
+                    href={`https://wa.me/?text=${encodeURIComponent(`Olá, confirmo meu agendamento na Dlux com ${lastAppointment.barber} para ${lastAppointment.service} dia ${lastAppointment.date} às ${lastAppointment.time}.`)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ textDecoration: 'none', backgroundColor: '#25D366', borderColor: '#25D366' }}
+                  >
+                    Enviar confirmação no WhatsApp
+                  </Button>
+                </>
+              )}
+              <Button as="button" type="button" onClick={() => {
+                setFeedbackOpen(false);
+                try {
+                  if (typeof window !== 'undefined') window.location.reload();
+                } catch (_) { }
+              }} $buttonStyle="secondary">
+                Fechar
+              </Button>
+            </div>
           </S.Modal>
         </>
       )}

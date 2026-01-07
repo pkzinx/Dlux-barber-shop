@@ -1,6 +1,6 @@
 from rest_framework import viewsets, permissions
 from rest_framework.response import Response
-from rest_framework.decorators import action
+from rest_framework.decorators import action, authentication_classes
 from rest_framework.views import APIView
 from rest_framework import status
 from .models import Appointment
@@ -118,7 +118,7 @@ class AppointmentViewSet(viewsets.ModelViewSet):
         appt.save()
         return Response(AppointmentSerializer(appt).data)
 
-    @action(detail=True, methods=['post'], url_path='subscribe', permission_classes=[permissions.AllowAny])
+    @action(detail=True, methods=['post'], url_path='subscribe', permission_classes=[permissions.AllowAny], authentication_classes=[])
     def subscribe(self, request, pk=None):
         """Recebe token FCM para um agendamento e salva subscrição.
         Body: { token: string }
@@ -137,7 +137,7 @@ class AppointmentViewSet(viewsets.ModelViewSet):
         except Exception as e:
             return Response({'detail': str(e)}, status=400)
 
-    @action(detail=True, methods=['post'], url_path='notify_test', permission_classes=[permissions.AllowAny])
+    @action(detail=True, methods=['post'], url_path='notify_test', permission_classes=[permissions.AllowAny], authentication_classes=[])
     def notify_test(self, request, pk=None):
         """Envia uma notificação de teste para todos os tokens inscritos no agendamento.
         Body opcional: { title?: string, body?: string, data?: object }
@@ -179,7 +179,7 @@ class AppointmentViewSet(viewsets.ModelViewSet):
         ]
         return Response({'barbers': data})
 
-    @action(detail=False, methods=['get'], url_path='available-slots', permission_classes=[permissions.AllowAny])
+    @action(detail=False, methods=['get'], url_path='available-slots', permission_classes=[permissions.AllowAny], authentication_classes=[])
     def available_slots(self, request):
         """Retorna horários disponíveis (HH:MM) para um barbeiro em uma data.
         Considera a duração do serviço para que o próximo horário só apareça após o término.
@@ -287,6 +287,7 @@ class AppointmentViewSet(viewsets.ModelViewSet):
 
 class PublicAppointmentCreate(APIView):
     permission_classes = [permissions.AllowAny]
+    authentication_classes = []
 
     def post(self, request):
         data = request.data
@@ -379,6 +380,7 @@ class PublicAppointmentCreate(APIView):
 
 class PublicAppointmentCancel(APIView):
     permission_classes = [permissions.AllowAny]
+    authentication_classes = []
 
     def post(self, request):
         """Cancela um agendamento publicamente por ID.
