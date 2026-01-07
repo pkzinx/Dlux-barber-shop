@@ -3,6 +3,8 @@ from rest_framework.response import Response
 from rest_framework.decorators import action, authentication_classes
 from rest_framework.views import APIView
 from rest_framework import status
+from django.views.decorators.csrf import csrf_exempt
+from django.utils.decorators import method_decorator
 from .models import Appointment
 from .models import TimeBlock
 from .models import NotificationSubscription, AppointmentNotification, ClientToken
@@ -285,6 +287,7 @@ class AppointmentViewSet(viewsets.ModelViewSet):
         return Response({'slots': slots})
 
 
+@method_decorator(csrf_exempt, name='dispatch')
 class PublicAppointmentCreate(APIView):
     permission_classes = [permissions.AllowAny]
     authentication_classes = []
@@ -378,6 +381,7 @@ class PublicAppointmentCreate(APIView):
 
 # Create your views here.
 
+@method_decorator(csrf_exempt, name='dispatch')
 class PublicAppointmentCancel(APIView):
     permission_classes = [permissions.AllowAny]
     authentication_classes = []
