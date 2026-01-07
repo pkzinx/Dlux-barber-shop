@@ -1,0 +1,69 @@
+name: Deploy to VPS
+
+on:
+  push:
+    branches:
+      - prod
+
+jobs:
+  deploy:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Deploy to VPS
+        env:
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PATH: ${{ secrets.VPS_PATH }}
+        run: |
+          ssh -i ~/.ssh/deploy_key ${VPS_USER}@${VPS_HOST} << 'ENDSSH'
+            set -e
+            cd ${VPS_PATH:-/home/deploy/apps/dlux-barber-shop}
+            
+            echo "🔵 Pulling latest changes from prod..."
+            git pull origin prod
+            
+            echo "🔵 Building and starting containers..."
+            docker compose down
+            docker compose pull
+            docker compose build --no-cache
+            docker compose up -d
+            
+            echo "🔵 Running migrations..."
+            docker compose exec -T backend python manage.py migrate --noinput || true
+            
+            echo "🔵 Collecting static files..."
+            docker compose exec -T backend python manage.py collectstatic --noinput || true
+            
+            echo "✅ Deployment completed!"
+            
+            echo "🔵 Cleaning up unused images..."
+            docker image prune -f
+            
+          ENDSSH
+
+      - name: Health Check
+        run: |
+          echo "⏳ Waiting for services to be ready..."
+          for i in {1..30}; do
+            if curl -f http://${{ secrets.VPS_HOST }} > /dev/null 2>&1; then
+              echo "✅ Health check passed!"
+              exit 0
+            fi
+            echo "⏳ Waiting for service ($i/30)..."
+            sleep 5
+          done
+          echo "❌ Health check failed after 150 seconds!"
+          exit 1
+
