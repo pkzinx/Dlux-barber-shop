@@ -9,3 +9,6 @@ class AppointmentSerializer(serializers.ModelSerializer):
             'id', 'barber', 'client_name', 'client_phone', 'service',
             'start_datetime', 'end_datetime', 'status', 'notes', 'created_at'
         ]
+        extra_kwargs = {
+            'notes': {'required': False, 'allow_blank': True}
+        }

@@ -260,30 +260,37 @@ class PublicAppointmentCreate(APIView):
 
     def post(self, request):
         data = request.data
+        print(f"DEBUG: Dados recebidos: {data}")
         
         barber_id = data.get('barber') or data.get('barberId')
         service_id = data.get('service') or data.get('serviceId')
 
         if not barber_id:
             barber_name = data.get('barber_name') or data.get('barberName') or data.get('barberUsername')
+            print(f"DEBUG: Buscando barbeiro por nome: {barber_name}")
             if barber_name:
                 candidate = User.objects.filter(role=User.BARBER).filter(
                     Q(username__iexact=barber_name.strip()) | Q(display_name__iexact=barber_name.strip())
                 ).first()
                 if candidate:
                     barber_id = candidate.id
+                    print(f"DEBUG: Barbeiro encontrado: {barber_id}")
                 else:
+                    print(f"DEBUG: Barbeiro não encontrado: {barber_name}")
                     return Response({'detail': f'Barbeiro "{barber_name}" não encontrado.'}, status=status.HTTP_400_BAD_REQUEST)
             else:
                 return Response({'detail': 'Barbeiro é obrigatório.'}, status=status.HTTP_400_BAD_REQUEST)
 
         if not service_id:
             service_title = data.get('service_title') or data.get('serviceTitle')
+            print(f"DEBUG: Buscando serviço por título: {service_title}")
             if service_title:
                 candidate_svc = Service.objects.filter(title__iexact=service_title.strip()).first()
                 if candidate_svc:
                     service_id = candidate_svc.id
+                    print(f"DEBUG: Serviço encontrado: {service_id}")
                 else:
+                    print(f"DEBUG: Serviço não encontrado: {service_title}")
                     return Response({'detail': f'Serviço "{service_title}" não encontrado.'}, status=status.HTTP_400_BAD_REQUEST)
             else:
                 return Response({'detail': 'Serviço é obrigatório.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -295,35 +302,7 @@ class PublicAppointmentCreate(APIView):
 
         start_dt = data.get('start_datetime') or data.get('startDatetime')
         end_dt = data.get('end_datetime') or data.get('endDatetime')
-        if not start_dt:
-            date_str = data.get('date') or data.get('start_date') or data.get('startDate')
-            time_str = data.get('time') or data.get('start_time') or data.get('startTime')
-            if not date_str or not time_str:
-                return Response({'detail': 'Data e horário são obrigatórios.'}, status=status.HTTP_400_BAD_REQUEST)
-            try:
-                tz = timezone.get_current_timezone()
-                y, m, d = [int(x) for x in date_str.split('-')]
-                hh, mm = [int(x) for x in time_str.split(':')[:2]]
-                naive = datetime.datetime(y, m, d, hh, mm, 0)
-                start_aware = timezone.make_aware(naive, tz)
-                start_dt = start_aware.isoformat(timespec='seconds')
-            except Exception:
-                return Response({'detail': 'Data/horário inválidos.'}, status=status.HTTP_400_BAD_REQUEST)
-        if not end_dt:
-            try:
-                svc = Service.objects.filter(pk=service_id).first()
-                duration_minutes = getattr(svc, 'duration_minutes', None) or 30
-                try:
-                    start_parsed = datetime.datetime.fromisoformat(str(start_dt))
-                except Exception:
-                    return Response({'detail': 'Início inválido.'}, status=status.HTTP_400_BAD_REQUEST)
-                if timezone.is_naive(start_parsed):
-                    start_parsed = timezone.make_aware(start_parsed, timezone.get_current_timezone())
-                end_parsed = start_parsed + datetime.timedelta(minutes=duration_minutes)
-                end_dt = end_parsed.isoformat(timespec='seconds')
-            except Exception:
-                return Response({'detail': 'Falha ao calcular término.'}, status=status.HTTP_400_BAD_REQUEST)
-
+        
         payload = {
             'barber': barber.id,
             'client_name': data.get('client_name') or data.get('clientName') or data.get('nome'),
@@ -331,8 +310,9 @@ class PublicAppointmentCreate(APIView):
             'service': service_id,
             'start_datetime': start_dt,
             'end_datetime': end_dt,
-            'notes': data.get('notes') or data.get('obs') or ''
+            'notes': data.get('notes') or data.get('obs')
         }
+        print(f"DEBUG: Payload para o serializer: {payload}")
         
         serializer = AppointmentSerializer(data=payload)
         if serializer.is_valid():
@@ -340,8 +320,11 @@ class PublicAppointmentCreate(APIView):
                 appt = serializer.save()
                 return Response(AppointmentSerializer(appt).data, status=status.HTTP_201_CREATED)
             except Exception as e:
+                print(f"DEBUG: Erro ao salvar: {str(e)}")
                 return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            print(f"DEBUG: Erros no serializer: {serializer.errors}")
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 @method_decorator(csrf_exempt, name='dispatch')
@@ -366,3 +349,4 @@ class PublicAppointmentCancel(APIView):
         except Exception:
             pass
         return Response(AppointmentSerializer(appt).data, status=status.HTTP_200_OK)
+
