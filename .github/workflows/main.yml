@@ -1,0 +1,29 @@
+name: Deploy Produção (Self-Hosted)
+
+on:
+  push:
+    branches: [main, master]
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+    steps:
+      - name: Deploy Total e Limpeza de Cache
+        run: |
+          cd /home/deploy/Dlux-barber-shop
+          git pull origin main || git pull origin master
+          
+          # reconstrói as imagens garantindo que não use cache antigo do docker
+          docker compose build --no-cache 
+          
+          # sobe os containers novos
+          docker compose up -d 
+          
+          # roda as migrações (mudanças no banco de dados)
+          docker compose exec -T backend python manage.py migrate --noinput
+          
+          # atualiza arquivos estáticos (evita cache de CSS/JS antigo)
+          docker compose exec -T backend python manage.py collectstatic --noinput
+          
+          # remove imagens antigas que ficaram sobrando pra economizar espaço
+          docker image prune -f
