@@ -12,7 +12,7 @@ const contributors: Contributors[] = [
     occupation: 'Barbeiro',
   },
   {
-    src: '/assets/img/kaue.JPG',
+    src: '/assets/img/kaue.jpg',
     name: 'Kaue',
     occupation: 'Barbeiro',
   },
